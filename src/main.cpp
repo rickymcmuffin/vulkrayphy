@@ -29,11 +29,14 @@
 #include <unordered_map>
 #include <vector>
 
+
+
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
 const std::string MODEL_PATH = "src/models/pool_table/POOL_TABLE.obj";
-const std::string TEXTURE_PATH = "src/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
+const std::string TEXTURE_PATH =
+    "src/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -1398,10 +1401,17 @@ class HelloTriangleApplication
 
         std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
+        int i = 0;
         for (const auto &shape : shapes)
         {
+            // if (i != 3)
+            //     continue;
+            std::cout << "Number of indices in shape" << i <<": "
+                      << shape.mesh.indices.size() << std::endl;
+            i++;
             for (const auto &index : shape.mesh.indices)
             {
+                // std::cout << index.vertex_index;
                 Vertex vertex{};
 
                 vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
@@ -2158,6 +2168,7 @@ class HelloTriangleApplication
                   void *pUserData)
     {
         std::cerr << "validation layer: " << pCallbackData->pMessage
+                  << std::endl
                   << std::endl;
 
         return VK_FALSE;
@@ -2179,4 +2190,3 @@ int main()
 
     return EXIT_SUCCESS;
 }
-

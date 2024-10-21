@@ -3,6 +3,7 @@
 
 CMakeFiles/GameTime.dir/src/main.cpp.obj
  C:/Users/ricky/Documents/Projects/vulkrayphy/src/main.cpp
+ C:/Users/ricky/Documents/Projects/vulkrayphy/include/camera.hpp
  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/common.hpp
  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/detail/_fixes.hpp
  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/detail/_vectorize.hpp
