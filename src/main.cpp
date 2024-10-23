@@ -31,8 +31,6 @@
 
 #include "../include/controls.hpp"
 
-
-
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
@@ -148,6 +146,14 @@ struct Vertex
     }
 };
 
+struct Shape
+{
+    uint32_t indexCount;
+    uint32_t firstIndex;
+    VkBuffer buffer;
+    std::vector<VkDescriptorSet> descriptorSets;
+};
+
 namespace std
 {
 template <> struct hash<Vertex>
@@ -229,6 +235,8 @@ class HelloTriangleApplication
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
+    std::vector<Shape> shapes_all;
+
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     std::vector<void *> uniformBuffersMapped;
@@ -299,16 +307,26 @@ class HelloTriangleApplication
     {
         float delta_time;
         float last_tick = glfwGetTime();
-        int i = 0;
+
+        uint32_t shape_index = 0;
+        float update_shape = glfwGetTime();
+        
         while (!glfwWindowShouldClose(window))
         {
             delta_time = glfwGetTime() - last_tick;
             last_tick = glfwGetTime();
 
 
+            if (glfwGetTime() - update_shape >=1.0f){
+                update_shape = glfwGetTime();
+                shape_index = (shape_index + 1) % 16;
+                std::cout << "Shape Index: " << shape_index <<std::endl
+                    << "Num indices: " << shapes_all[shape_index].indexCount<<std::endl;
+            }
+
             glfwPollEvents();
             gameState.updateGame(window, delta_time);
-            drawFrame(delta_time);
+            drawFrame(delta_time, shape_index);
         }
 
         vkDeviceWaitIdle(device);
@@ -1413,14 +1431,10 @@ class HelloTriangleApplication
 
         std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
-        int i = 0;
         for (const auto &shape : shapes)
         {
-            // if (i != 3)
-            //     continue;
-            std::cout << "Number of indices in shape" << i <<": "
-                      << shape.mesh.indices.size() << std::endl;
-            i++;
+            Shape new_shape{};
+            new_shape.firstIndex = indices.size();
             for (const auto &index : shape.mesh.indices)
             {
                 // std::cout << index.vertex_index;
@@ -1444,7 +1458,9 @@ class HelloTriangleApplication
                 }
 
                 indices.push_back(uniqueVertices[vertex]);
+                new_shape.indexCount++;
             }
+            shapes_all.push_back(new_shape);
         }
     }
 
@@ -1718,7 +1734,7 @@ class HelloTriangleApplication
         }
     }
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, uint32_t shape_index)
     {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1737,7 +1753,7 @@ class HelloTriangleApplication
         renderPassInfo.renderArea.extent = swapChainExtent;
 
         std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        clearValues[0].color = {{0.02f, 0.02f, 0.03f, 1.0f}};
         clearValues[1].depthStencil = {1.0f, 0};
 
         renderPassInfo.clearValueCount =
@@ -1775,7 +1791,10 @@ class HelloTriangleApplication
                                 pipelineLayout, 0, 1,
                                 &descriptorSets[currentFrame], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()),
+        vkCmdDrawIndexed(commandBuffer, 672,
+                         1, shapes_all[10].firstIndex+(shape_index*672), 0, 0);
+
+        vkCmdDrawIndexed(commandBuffer, shapes_all[10].firstIndex,
                          1, 0, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
@@ -1824,21 +1843,22 @@ class HelloTriangleApplication
                          .count();
 
         UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), delta_time * glm::radians(0.0f),
-                                glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model =
+            glm::rotate(glm::mat4(1.0f), delta_time * glm::radians(0.0f),
+                        glm::vec3(0.0f, 0.0f, 1.0f));
         // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
         //                        glm::vec3(0.0f, 0.0f, 0.0f),
         //                        glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = gameState.getCamera().GetViewMatrix();
         ubo.proj = glm::perspective(
-            glm::radians(45.0f),
+            glm::radians(60.0f),
             swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
 
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
     }
 
-    void drawFrame(float delta_time)
+    void drawFrame(float delta_time, uint32_t shape_index)
     {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE,
                         UINT64_MAX);
@@ -1865,7 +1885,7 @@ class HelloTriangleApplication
 
         vkResetCommandBuffer(commandBuffers[currentFrame],
                              /*VkCommandBufferResetFlagBits*/ 0);
-        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex, shape_index);
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
