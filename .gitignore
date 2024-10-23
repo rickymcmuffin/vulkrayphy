@@ -32,3 +32,6 @@
 *.app
 
 src/textures
+src/shaders
+src/models
+build-windows/*

@@ -8,6 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "C:/Users/ricky/Documents/Projects/vulkrayphy/src/controls.cpp" "CMakeFiles/GameTime.dir/src/controls.cpp.obj" "gcc" "CMakeFiles/GameTime.dir/src/controls.cpp.obj.d"
   "C:/Users/ricky/Documents/Projects/vulkrayphy/src/main.cpp" "CMakeFiles/GameTime.dir/src/main.cpp.obj" "gcc" "CMakeFiles/GameTime.dir/src/main.cpp.obj.d"
   )
 

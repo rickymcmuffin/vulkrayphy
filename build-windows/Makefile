@@ -212,6 +212,30 @@ update_mappings/fast:
 	$(MAKE) $(MAKESILENT) -f lib\glfw-3.4\src\CMakeFiles\update_mappings.dir\build.make lib/glfw-3.4/src/CMakeFiles/update_mappings.dir/build
 .PHONY : update_mappings/fast
 
+src/controls.obj: src/controls.cpp.obj
+.PHONY : src/controls.obj
+
+# target to build an object file
+src/controls.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\GameTime.dir\build.make CMakeFiles/GameTime.dir/src/controls.cpp.obj
+.PHONY : src/controls.cpp.obj
+
+src/controls.i: src/controls.cpp.i
+.PHONY : src/controls.i
+
+# target to preprocess a source file
+src/controls.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\GameTime.dir\build.make CMakeFiles/GameTime.dir/src/controls.cpp.i
+.PHONY : src/controls.cpp.i
+
+src/controls.s: src/controls.cpp.s
+.PHONY : src/controls.s
+
+# target to generate assembly for a file
+src/controls.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\GameTime.dir\build.make CMakeFiles/GameTime.dir/src/controls.cpp.s
+.PHONY : src/controls.cpp.s
+
 src/main.obj: src/main.cpp.obj
 .PHONY : src/main.obj
 
@@ -252,6 +276,9 @@ help:
 	@echo ... update_mappings
 	@echo ... GameTime
 	@echo ... glfw
+	@echo ... src/controls.obj
+	@echo ... src/controls.i
+	@echo ... src/controls.s
 	@echo ... src/main.obj
 	@echo ... src/main.i
 	@echo ... src/main.s

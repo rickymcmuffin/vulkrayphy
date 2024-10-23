@@ -1,5 +1,7 @@
 
 #include "../include/controls.hpp"
+#include <GLFW/glfw3.h>
+
 
 void processInput(GLFWwindow *window, float deltaTime, Camera *camera)
 {
@@ -36,6 +38,7 @@ void processInput(GLFWwindow *window, float deltaTime, Camera *camera)
     {
         camera->ProcessKeyboard(DOWN, deltaTime);
     }
+
     float xoffset = 0.0f;
     float yoffset = 0.0f;
     float offsetAmount = 500.0f * deltaTime;
@@ -56,21 +59,24 @@ void processInput(GLFWwindow *window, float deltaTime, Camera *camera)
         xoffset -= offsetAmount;
     }
     camera->ProcessMouseMovement(xoffset, yoffset);
-
-    // double xpos, ypos;
-    // glfwGetCursorPos(window, &xpos, &ypos);
-    // float xoffset = xpos - mouseX;
-    // float yoffset = -(ypos - mouseY);
-    // // std::cout << xoffset<< " "<<yoffset<<std::endl;
-    // camera->ProcessMouseMovement(xoffset, yoffset);
-    // mouseX = xpos;
-    // mouseY = ypos;
 }
 
-Camera DoThings::Controls::updateCamera(GLFWwindow *window, float deltaTime, Camera camera){
-    Camera ret;
+void GameState::updateGame(GLFWwindow *window, float deltaTime)
+{
 
     processInput(window, deltaTime, &camera);
+    printFPS();
+}
 
-    return ret;
+Camera GameState::getCamera() { return camera; }
+
+void GameState::printFPS()
+{
+    frameCounter++;
+    if (glfwGetTime() - last_time >= 1.0f)
+    {
+        std::cout << "FPS: " << frameCounter<<std::endl;
+        frameCounter = 0;
+        last_time = glfwGetTime();
+    }
 }

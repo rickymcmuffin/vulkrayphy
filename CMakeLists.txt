@@ -22,6 +22,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(GameTime 
                         src/main.cpp
+                        src/controls.cpp
                         )
 target_include_directories(GameTime PRIVATE include)
 

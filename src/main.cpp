@@ -29,6 +29,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../include/controls.hpp"
+
 
 
 const uint32_t WIDTH = 800;
@@ -243,6 +245,8 @@ class HelloTriangleApplication
 
     bool framebufferResized = false;
 
+    GameState gameState;
+
     void initWindow()
     {
         glfwInit();
@@ -293,10 +297,18 @@ class HelloTriangleApplication
 
     void mainLoop()
     {
+        float delta_time;
+        float last_tick = glfwGetTime();
+        int i = 0;
         while (!glfwWindowShouldClose(window))
         {
+            delta_time = glfwGetTime() - last_tick;
+            last_tick = glfwGetTime();
+
+
             glfwPollEvents();
-            drawFrame();
+            gameState.updateGame(window, delta_time);
+            drawFrame(delta_time);
         }
 
         vkDeviceWaitIdle(device);
@@ -1802,7 +1814,7 @@ class HelloTriangleApplication
         }
     }
 
-    void updateUniformBuffer(uint32_t currentImage)
+    void updateUniformBuffer(uint32_t currentImage, float delta_time)
     {
         static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -1812,11 +1824,12 @@ class HelloTriangleApplication
                          .count();
 
         UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+        ubo.model = glm::rotate(glm::mat4(1.0f), delta_time * glm::radians(0.0f),
                                 glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-                               glm::vec3(0.0f, 0.0f, 0.0f),
-                               glm::vec3(0.0f, 0.0f, 1.0f));
+        // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+        //                        glm::vec3(0.0f, 0.0f, 0.0f),
+        //                        glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = gameState.getCamera().GetViewMatrix();
         ubo.proj = glm::perspective(
             glm::radians(45.0f),
             swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
@@ -1825,7 +1838,7 @@ class HelloTriangleApplication
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
     }
 
-    void drawFrame()
+    void drawFrame(float delta_time)
     {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE,
                         UINT64_MAX);
@@ -1846,7 +1859,7 @@ class HelloTriangleApplication
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
-        updateUniformBuffer(currentFrame);
+        updateUniformBuffer(currentFrame, delta_time);
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 

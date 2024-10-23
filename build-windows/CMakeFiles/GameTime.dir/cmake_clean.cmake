@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/GameTime.dir/src/controls.cpp.obj"
+  "CMakeFiles/GameTime.dir/src/controls.cpp.obj.d"
   "CMakeFiles/GameTime.dir/src/main.cpp.obj"
   "CMakeFiles/GameTime.dir/src/main.cpp.obj.d"
   "GameTime.exe"

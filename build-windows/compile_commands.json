@@ -6,6 +6,12 @@
   "output": "CMakeFiles/GameTime.dir/src/main.cpp.obj"
 },
 {
+  "directory": "C:/Users/ricky/Documents/Projects/vulkrayphy/build-windows",
+  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/GameTime.dir/includes_CXX.rsp -Wall -Wextra -Wpedantic -o CMakeFiles\\GameTime.dir\\src\\controls.cpp.obj -c C:\\Users\\ricky\\Documents\\Projects\\vulkrayphy\\src\\controls.cpp",
+  "file": "C:/Users/ricky/Documents/Projects/vulkrayphy/src/controls.cpp",
+  "output": "CMakeFiles/GameTime.dir/src/controls.cpp.obj"
+},
+{
   "directory": "C:/Users/ricky/Documents/Projects/vulkrayphy/build-windows/lib/glfw-3.4/src",
   "command": "C:\\mingw64\\bin\\gcc.exe -DUNICODE -DWINVER=0x0501 -D_GLFW_WIN32 -D_UNICODE @CMakeFiles/glfw.dir/includes_C.rsp -std=c99 -Wall -o CMakeFiles\\glfw.dir\\context.c.obj -c C:\\Users\\ricky\\Documents\\Projects\\vulkrayphy\\lib\\glfw-3.4\\src\\context.c",
   "file": "C:/Users/ricky/Documents/Projects/vulkrayphy/lib/glfw-3.4/src/context.c",
