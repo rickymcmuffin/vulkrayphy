@@ -501,6 +501,9 @@ CMakeFiles/GameTime.dir/src/main.cpp.obj: C:/Users/ricky/Documents/Projects/vulk
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/vec3.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/vec4.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/vector_relational.hpp \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/load_model.hpp \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/stb_image.h \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/tiny_obj_loader.h \
   C:/Users/ricky/Documents/Projects/vulkrayphy/lib/glfw-3.4/include/GLFW/glfw3.h \
   C:/VulkanSDK/1.3.296.0/Include/vk_video/vulkan_video_codec_av1std.h \
   C:/VulkanSDK/1.3.296.0/Include/vk_video/vulkan_video_codec_av1std_decode.h \
@@ -732,9 +735,7 @@ CMakeFiles/GameTime.dir/src/main.cpp.obj: C:/Users/ricky/Documents/Projects/vulk
   C:/mingw64/x86_64-w64-mingw32/include/time.h \
   C:/mingw64/x86_64-w64-mingw32/include/vadefs.h \
   C:/mingw64/x86_64-w64-mingw32/include/wchar.h \
-  C:/mingw64/x86_64-w64-mingw32/include/wctype.h \
-  C:/Users/ricky/Documents/Projects/vulkrayphy/src/stb_image.h \
-  C:/Users/ricky/Documents/Projects/vulkrayphy/src/tiny_obj_loader.h
+  C:/mingw64/x86_64-w64-mingw32/include/wctype.h
 
 
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/refwrap.h:
@@ -1357,13 +1358,13 @@ C:/mingw64/x86_64-w64-mingw32/include/stdlib.h:
 
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/stdlib.h:
 
+C:/Users/ricky/Documents/Projects/vulkrayphy/include/load_model.hpp:
+
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/streambuf:
 
 C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/detail/type_float.hpp:
 
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/tr1/beta_function.tcc:
-
-C:/Users/ricky/Documents/Projects/vulkrayphy/src/stb_image.h:
 
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/float.h:
 
@@ -1517,6 +1518,10 @@ C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/vec1.hpp:
 
 C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/dual_quaternion.hpp:
 
+C:/Users/ricky/Documents/Projects/vulkrayphy/include/stb_image.h:
+
+C:/Users/ricky/Documents/Projects/vulkrayphy/include/tiny_obj_loader.h:
+
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/array:
 
 C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/bits/erase_if.h:
@@ -1576,5 +1581,3 @@ C:/mingw64/x86_64-w64-mingw32/include/_mingw_stdarg.h:
 C:/mingw64/x86_64-w64-mingw32/include/string.h:
 
 C:/mingw64/x86_64-w64-mingw32/include/time.h:
-
-C:/Users/ricky/Documents/Projects/vulkrayphy/src/tiny_obj_loader.h:
