@@ -100,8 +100,6 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-
-
 struct UniformBufferObject
 {
     alignas(16) glm::mat4 model;
@@ -250,13 +248,10 @@ class HelloTriangleApplication
             delta_time = glfwGetTime() - last_tick;
             last_tick = glfwGetTime();
 
-            if (glfwGetTime() - update_shape >= 1.0f)
+            if (glfwGetTime() - update_shape >= 0.5f)
             {
                 update_shape = glfwGetTime();
-                shape_index = (shape_index + 1) % shapes_all.size();
-                std::cout << "Shape Index: " << shape_index << std::endl
-                          << "Num indices: "
-                          << shapes_all[shape_index].indexCount << std::endl;
+                shape_index = (shape_index + 1) % 16;
             }
 
             glfwPollEvents();
@@ -1351,12 +1346,12 @@ class HelloTriangleApplication
         endSingleTimeCommands(commandBuffer);
     }
 
-
-    void loadModel(){
+    void loadModel()
+    {
         auto lm = lmLoadModel();
         vertices = lm.vertices;
         indices = lm.indices;
-        shapes_all = lm.shapes; 
+        shapes_all = lm.shapes;
     }
 
     void createVertexBuffer()
@@ -1440,16 +1435,17 @@ class HelloTriangleApplication
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[0].descriptorCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[1].descriptorCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolInfo.maxSets =
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr,
                                    &descriptorPool) != VK_SUCCESS)
@@ -1460,57 +1456,64 @@ class HelloTriangleApplication
 
     void createDescriptorSets()
     {
-        std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
-                                                   descriptorSetLayout);
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = descriptorPool;
-        allocInfo.descriptorSetCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        allocInfo.pSetLayouts = layouts.data();
-
-        descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-        if (vkAllocateDescriptorSets(device, &allocInfo,
-                                     descriptorSets.data()) != VK_SUCCESS)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
+            std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                                       descriptorSetLayout);
+            VkDescriptorSetAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            allocInfo.descriptorPool = descriptorPool;
+            allocInfo.descriptorSetCount =
+                static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            allocInfo.pSetLayouts = layouts.data();
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-        {
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[i];
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
+            shapes_all[i].descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+            if (vkAllocateDescriptorSets(device, &allocInfo,
+                                         shapes_all[i].descriptorSets.data()) !=
+                VK_SUCCESS)
+            {
+                throw std::runtime_error("failed to allocate descriptor sets!");
+            }
 
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = textureImageView;
-            imageInfo.sampler = textureSampler;
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                VkDescriptorBufferInfo bufferInfo{};
+                bufferInfo.buffer = uniformBuffers[j];
+                bufferInfo.offset = 0;
+                bufferInfo.range = sizeof(UniformBufferObject);
 
-            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+                VkDescriptorImageInfo imageInfo{};
+                imageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                imageInfo.imageView = textureImageView;
+                imageInfo.sampler = textureSampler;
 
-            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[0].dstSet = descriptorSets[i];
-            descriptorWrites[0].dstBinding = 0;
-            descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType =
-                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
+                std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
-            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[1].dstSet = descriptorSets[i];
-            descriptorWrites[1].dstBinding = 1;
-            descriptorWrites[1].dstArrayElement = 0;
-            descriptorWrites[1].descriptorType =
-                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &imageInfo;
+                descriptorWrites[0].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[0].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[0].dstBinding = 0;
+                descriptorWrites[0].dstArrayElement = 0;
+                descriptorWrites[0].descriptorType =
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                descriptorWrites[0].descriptorCount = 1;
+                descriptorWrites[0].pBufferInfo = &bufferInfo;
 
-            vkUpdateDescriptorSets(
-                device, static_cast<uint32_t>(descriptorWrites.size()),
-                descriptorWrites.data(), 0, nullptr);
+                descriptorWrites[1].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[1].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[1].dstBinding = 1;
+                descriptorWrites[1].dstArrayElement = 0;
+                descriptorWrites[1].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[1].descriptorCount = 1;
+                descriptorWrites[1].pImageInfo = &imageInfo;
+
+                vkUpdateDescriptorSets(
+                    device, static_cast<uint32_t>(descriptorWrites.size()),
+                    descriptorWrites.data(), 0, nullptr);
+            }
         }
     }
 
@@ -1683,13 +1686,14 @@ class HelloTriangleApplication
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0,
                              VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipelineLayout, 0, 1,
-                                &descriptorSets[currentFrame], 0, nullptr);
+        vkCmdBindDescriptorSets(
+            commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
+            1, &shapes_all[0].descriptorSets[currentFrame], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, shapes_all[shape_index].indexCount, 1,
-                         shapes_all[shape_index].firstIndex, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, shapes_all[10].firstIndex, 1, 0, 0, 0);
 
+        vkCmdDrawIndexed(commandBuffer, shapes_all[shape_index + 10].indexCount,
+                         1, shapes_all[shape_index + 10].firstIndex, 0, 0);
 
         vkCmdEndRenderPass(commandBuffer);
 

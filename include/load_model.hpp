@@ -149,11 +149,13 @@ inline LMRetValue lmLoadModel()
         // they are not separate shapes
         if (shape_index == 10)
         {
+            std::cout << "adding balls!" << std::endl;
             shapes_all.pop_back();
             for (int i = 0; i < 16; i++){
                 Shape billiard_ball{};
                 billiard_ball.firstIndex = new_shape.firstIndex + (672*i);
                 billiard_ball.indexCount = 672;
+                shapes_all.push_back(billiard_ball);
             }
         }
     }

@@ -13,6 +13,7 @@ class GameState
 {
 
   public:
+    GameState();
     void updateGame(GLFWwindow *window, float deltaTime);
     Camera getCamera();
 

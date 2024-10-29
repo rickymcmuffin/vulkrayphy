@@ -2,6 +2,8 @@
 #include "../include/controls.hpp"
 #include <GLFW/glfw3.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtx/string_cast.hpp"
 
 void processInput(GLFWwindow *window, float deltaTime, Camera *camera)
 {
@@ -61,6 +63,9 @@ void processInput(GLFWwindow *window, float deltaTime, Camera *camera)
     camera->ProcessMouseMovement(xoffset, yoffset);
 }
 
+GameState::GameState(): camera(glm::vec3(0.0f, 2.0f, 2.0f), glm::vec3(0.0f, 1.0f, 0.0f), YAW, PITCH){
+}
+
 void GameState::updateGame(GLFWwindow *window, float deltaTime)
 {
 
@@ -75,7 +80,8 @@ void GameState::printFPS()
     frameCounter++;
     if (glfwGetTime() - last_time >= 1.0f)
     {
-        std::cout << "FPS: " << frameCounter<<std::endl;
+        std::cout << "\rFPS: " << frameCounter;//<<std::endl;
+        // std::cout << glm::to_string(camera.Position) <<std::endl;
         frameCounter = 0;
         last_time = glfwGetTime();
     }
