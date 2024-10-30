@@ -537,11 +537,15 @@ CMakeFiles/GameTime.dir/src/main.cpp.obj: C:/Users/ricky/Documents/Projects/vulk
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/matrix_transform.inl \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/quaternion.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/quaternion.inl \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/type_precision.hpp \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/type_precision.inl \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtc/vec1.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/dual_quaternion.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/dual_quaternion.inl \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/hash.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/hash.inl \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/string_cast.hpp \
+  C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/gtx/string_cast.inl \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/integer.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/mat2x2.hpp \
   C:/Users/ricky/Documents/Projects/vulkrayphy/include/glm/mat2x3.hpp \
@@ -673,6 +677,7 @@ CMakeFiles/GameTime.dir/src/main.cpp.obj: C:/Users/ricky/Documents/Projects/vulk
   C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cmath \
   C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/compare \
   C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/concepts \
+  C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cstdarg \
   C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cstddef \
   C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cstdint \
   C:/mingw64/lib/gcc/x86_64-w64-mingw32/14.2.0/include/c++/cstdio \

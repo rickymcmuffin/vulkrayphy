@@ -293,10 +293,15 @@ class HelloTriangleApplication
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                vkDestroyBuffer(device, shapes_all[i].uniformBuffers[j],
+                                nullptr);
+                vkFreeMemory(device, shapes_all[i].uniformBuffersMemory[j],
+                             nullptr);
+            }
         }
 
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
@@ -1414,19 +1419,24 @@ class HelloTriangleApplication
     {
         VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         uniformBuffers[i], uniformBuffersMemory[i]);
+            shapes_all[i].uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
-            vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0,
-                        &uniformBuffersMapped[i]);
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             shapes_all[i].uniformBuffers[j],
+                             shapes_all[i].uniformBuffersMemory[j]);
+
+                vkMapMemory(device, shapes_all[i].uniformBuffersMemory[j], 0,
+                            bufferSize, 0,
+                            &shapes_all[i].uniformBuffersMapped[j]);
+            }
         }
     }
 
@@ -1478,7 +1488,7 @@ class HelloTriangleApplication
             for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
             {
                 VkDescriptorBufferInfo bufferInfo{};
-                bufferInfo.buffer = uniformBuffers[j];
+                bufferInfo.buffer = shapes_all[i].uniformBuffers[j];
                 bufferInfo.offset = 0;
                 bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -1686,14 +1696,15 @@ class HelloTriangleApplication
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0,
                              VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(
-            commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
-            1, &shapes_all[0].descriptorSets[currentFrame], 0, nullptr);
+        for (auto shape : shapes_all)
+        {
+            vkCmdBindDescriptorSets(
+                commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+                0, 1, &shape.descriptorSets[currentFrame], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, shapes_all[10].firstIndex, 1, 0, 0, 0);
-
-        vkCmdDrawIndexed(commandBuffer, shapes_all[shape_index + 10].indexCount,
-                         1, shapes_all[shape_index + 10].firstIndex, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, shape.indexCount, 1,
+                             shape.firstIndex, 0, 0);
+        }
 
         vkCmdEndRenderPass(commandBuffer);
 
@@ -1733,27 +1744,28 @@ class HelloTriangleApplication
 
     void updateUniformBuffer(uint32_t currentImage, float delta_time)
     {
-        static auto startTime = std::chrono::high_resolution_clock::now();
+        static auto startTime = glfwGetTime();
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(
-                         currentTime - startTime)
-                         .count();
+        auto currentTime = glfwGetTime();
+        float time = currentTime - startTime;
 
-        UniformBufferObject ubo{};
-        ubo.model =
-            glm::rotate(glm::mat4(1.0f), delta_time * glm::radians(0.0f),
-                        glm::vec3(0.0f, 0.0f, 1.0f));
-        // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-        //                        glm::vec3(0.0f, 0.0f, 0.0f),
-        //                        glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = gameState.getCamera().GetViewMatrix();
-        ubo.proj = glm::perspective(
-            glm::radians(60.0f),
-            swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
+        for (size_t i = 0; i < shapes_all.size(); i++)
+        {
 
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+            UniformBufferObject ubo{};
+
+            ubo.model = gameState.getModelMatrix(i);
+                       
+            ubo.view = gameState.getCamera().GetViewMatrix();
+            ubo.proj = glm::perspective(glm::radians(60.0f),
+                                        swapChainExtent.width /
+                                            (float)swapChainExtent.height,
+                                        0.1f, 50.0f);
+            ubo.proj[1][1] *= -1;
+
+            memcpy(shapes_all[i].uniformBuffersMapped[currentImage], &ubo,
+                   sizeof(ubo));
+        }
     }
 
     void drawFrame(float delta_time, uint32_t shape_index)

@@ -1,6 +1,8 @@
 #ifndef LOAD_MODEL_HPP
 #define LOAD_MODEL_HPP
 
+#include <glm/geometric.hpp>
+#include <glm/gtx/string_cast.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <cstdint>
@@ -83,17 +85,68 @@ struct Shape
 {
     uint32_t indexCount;
     uint32_t firstIndex;
+
     VkBuffer buffer;
     std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void *> uniformBuffersMapped;
 };
 
-struct LMRetValue {
+struct LMRetValue
+{
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Shape> shapes;
 };
 
 const std::string _LM_MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
+
+// this edits the vertices parameter to center the shape
+inline void centerPolygon(Shape shape, std::vector<uint32_t> indices,
+                          std::vector<Vertex> &vertices)
+{
+    glm::vec3 centroid = glm::vec3(0);
+
+    std::unordered_map<uint32_t, uint32_t> uniqueVertices{};
+
+    for (int i = shape.firstIndex; i < shape.firstIndex + shape.indexCount; i++)
+    {
+        Vertex vertex = vertices[indices[i]];
+
+        if (uniqueVertices.count(indices[i]) > 0)
+            continue;
+
+        uniqueVertices[indices[i]] = static_cast<uint32_t>(vertices.size());
+
+        centroid += vertex.pos;
+    }
+
+    centroid /= uniqueVertices.size();
+
+    std::cout << "Centroid is: " << glm::to_string(centroid) << std::endl;
+
+    std::cout << "Radius is: " << glm::distance(vertices[indices[shape.firstIndex]].pos, centroid)<<std::endl;
+
+    uniqueVertices.clear();
+
+    for (int i = shape.firstIndex; i < shape.firstIndex + shape.indexCount; i++)
+    {
+        Vertex *vertex = &vertices[indices[i]];
+
+        if (uniqueVertices.count(indices[i]) > 0){
+            continue;
+        }
+        if(indices [i] == 3380){
+        }
+
+        uniqueVertices[indices[i]] = static_cast<uint32_t>(vertices.size());
+
+
+        vertex->pos -= centroid;
+    }
+
+}
 
 inline LMRetValue lmLoadModel()
 {
@@ -128,6 +181,9 @@ inline LMRetValue lmLoadModel()
                           attrib.vertices[3 * index.vertex_index + 1],
                           attrib.vertices[3 * index.vertex_index + 2]};
 
+            // shift everything to center
+            vertex.pos.x += -0.13;
+
             vertex.texCoord = {
                 attrib.texcoords[2 * index.texcoord_index + 0],
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
@@ -151,13 +207,20 @@ inline LMRetValue lmLoadModel()
         {
             std::cout << "adding balls!" << std::endl;
             shapes_all.pop_back();
-            for (int i = 0; i < 16; i++){
+            for (int i = 0; i < 16; i++)
+            {
                 Shape billiard_ball{};
-                billiard_ball.firstIndex = new_shape.firstIndex + (672*i);
+                billiard_ball.firstIndex = new_shape.firstIndex + (672 * i);
                 billiard_ball.indexCount = 672;
                 shapes_all.push_back(billiard_ball);
             }
         }
+    }
+    centerPolygon(shapes_all[2], indices, vertices);
+    centerPolygon(shapes_all[7], indices, vertices);
+    centerPolygon(shapes_all[8], indices, vertices);
+    for (size_t i = 10; i < shapes_all.size(); i++){
+        centerPolygon(shapes_all[i], indices, vertices);
     }
     LMRetValue ret{};
     ret.vertices = vertices;

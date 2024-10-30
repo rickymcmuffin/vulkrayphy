@@ -3,11 +3,11 @@
 
 #include <cstdint>
 #include <iostream>
+#include <vector>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include "camera.hpp"
-
 
 class GameState
 {
@@ -16,14 +16,24 @@ class GameState
     GameState();
     void updateGame(GLFWwindow *window, float deltaTime);
     Camera getCamera();
+    glm::mat4 getModelMatrix(size_t index);
 
   private:
+    struct Ball{
+        glm::vec3 pos;
+        glm::vec3 velocity;
+        glm::vec3 rotation;
+    };
+    
     Camera camera;
 
     uint64_t frameCounter;
     int last_time = glfwGetTime();
 
-    void printFPS();
+    Ball whiteBall;
+
+    void printLogs();
+    void updateBalls(float deltaTime);
 };
 
 #endif
