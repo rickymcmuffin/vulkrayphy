@@ -734,16 +734,24 @@ class HelloTriangleApplication
         uboLayoutBinding.pImmutableSamplers = nullptr;
         uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-        samplerLayoutBinding.binding = 1;
-        samplerLayoutBinding.descriptorCount = 1;
-        samplerLayoutBinding.descriptorType =
+        VkDescriptorSetLayoutBinding textureSamplerLayoutBinding{};
+        textureSamplerLayoutBinding.binding = 1;
+        textureSamplerLayoutBinding.descriptorCount = 1;
+        textureSamplerLayoutBinding.descriptorType =
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        samplerLayoutBinding.pImmutableSamplers = nullptr;
-        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        textureSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        textureSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
-            uboLayoutBinding, samplerLayoutBinding};
+        VkDescriptorSetLayoutBinding normalSamplerLayoutBinding{};
+        normalSamplerLayoutBinding.binding = 2;
+        normalSamplerLayoutBinding.descriptorCount = 1;
+        normalSamplerLayoutBinding.descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        normalSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        normalSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
+            uboLayoutBinding, textureSamplerLayoutBinding, normalSamplerLayoutBinding};
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1600,13 +1608,19 @@ class HelloTriangleApplication
                 bufferInfo.offset = 0;
                 bufferInfo.range = sizeof(UniformBufferObject);
 
-                VkDescriptorImageInfo imageInfo{};
-                imageInfo.imageLayout =
+                VkDescriptorImageInfo textureImageInfo{};
+                textureImageInfo.imageLayout =
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                imageInfo.imageView = normalImageView;
-                imageInfo.sampler = normalSampler;
+                textureImageInfo.imageView = textureImageView;
+                textureImageInfo.sampler = textureSampler;
 
-                std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+                VkDescriptorImageInfo normalImageInfo{};
+                normalImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                normalImageInfo.imageView = normalImageView;
+                normalImageInfo.sampler = normalSampler;
+
+                std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 
                 descriptorWrites[0].sType =
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1626,7 +1640,17 @@ class HelloTriangleApplication
                 descriptorWrites[1].descriptorType =
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 descriptorWrites[1].descriptorCount = 1;
-                descriptorWrites[1].pImageInfo = &imageInfo;
+                descriptorWrites[1].pImageInfo = &textureImageInfo;
+
+                descriptorWrites[2].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[2].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[2].dstBinding = 2;
+                descriptorWrites[2].dstArrayElement = 0;
+                descriptorWrites[2].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[2].descriptorCount = 1;
+                descriptorWrites[2].pImageInfo = &normalImageInfo;
 
                 vkUpdateDescriptorSets(
                     device, static_cast<uint32_t>(descriptorWrites.size()),
