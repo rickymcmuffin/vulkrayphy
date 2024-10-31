@@ -1696,14 +1696,15 @@ class HelloTriangleApplication
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0,
                              VK_INDEX_TYPE_UINT32);
 
-        for (auto shape : shapes_all)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
+            if (i < 10) continue;
             vkCmdBindDescriptorSets(
                 commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
-                0, 1, &shape.descriptorSets[currentFrame], 0, nullptr);
+                0, 1, &shapes_all[i].descriptorSets[currentFrame], 0, nullptr);
 
-            vkCmdDrawIndexed(commandBuffer, shape.indexCount, 1,
-                             shape.firstIndex, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, shapes_all[i].indexCount, 1,
+                             shapes_all[i].firstIndex, 0, 0);
         }
 
         vkCmdEndRenderPass(commandBuffer);

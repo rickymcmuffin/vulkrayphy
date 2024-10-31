@@ -120,8 +120,9 @@ void GameState::updateBalls(float deltaTime)
 
 glm::mat4 GameState::getModelMatrix(size_t index)
 {
+
     glm::mat4 ret = glm::mat4(1.0f);
-    if (index == 13)
+    if (index == 16)
     {
         ret = glm::translate(ret, whiteBall.pos);
         ret = glm::rotate(ret, whiteBall.rotation.x * -glm::radians(180.0f),
