@@ -1,3 +1,4 @@
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -38,6 +39,8 @@ const uint32_t HEIGHT = 600;
 const std::string MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
 const std::string TEXTURE_PATH =
     "assets/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
+const std::string NORMAL_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_Normal.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -154,11 +157,17 @@ class HelloTriangleApplication
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
 
-    uint32_t mipLevels;
+    uint32_t textureMipLevels;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
     VkImageView textureImageView;
     VkSampler textureSampler;
+
+    uint32_t normalMipLevels;
+    VkImage normalImage;
+    VkDeviceMemory normalImageMemory;
+    VkImageView normalImageView;
+    VkSampler normalSampler;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -225,6 +234,9 @@ class HelloTriangleApplication
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
+        createNormalImage();
+        createNormalImageView();
+        createNormalSampler();
         loadModel();
         createVertexBuffer();
         createIndexBuffer();
@@ -311,6 +323,12 @@ class HelloTriangleApplication
 
         vkDestroyImage(device, textureImage, nullptr);
         vkFreeMemory(device, textureImageMemory, nullptr);
+
+        vkDestroySampler(device, normalSampler, nullptr);
+        vkDestroyImageView(device, normalImageView, nullptr);
+
+        vkDestroyImage(device, normalImage, nullptr);
+        vkFreeMemory(device, normalImageMemory, nullptr);
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
@@ -997,7 +1015,7 @@ class HelloTriangleApplication
         stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight,
                                     &texChannels, STBI_rgb_alpha);
         VkDeviceSize imageSize = texWidth * texHeight * 4;
-        mipLevels = static_cast<uint32_t>(
+        textureMipLevels = static_cast<uint32_t>(
                         std::floor(std::log2(std::max(texWidth, texHeight)))) +
                     1;
 
@@ -1020,7 +1038,7 @@ class HelloTriangleApplication
 
         stbi_image_free(pixels);
 
-        createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT,
+        createImage(texWidth, texHeight, textureMipLevels, VK_SAMPLE_COUNT_1_BIT,
                     VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                         VK_IMAGE_USAGE_TRANSFER_DST_BIT |
@@ -1030,7 +1048,7 @@ class HelloTriangleApplication
 
         transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
                               VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
+                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, textureMipLevels);
         copyBufferToImage(stagingBuffer, textureImage,
                           static_cast<uint32_t>(texWidth),
                           static_cast<uint32_t>(texHeight));
@@ -1041,7 +1059,60 @@ class HelloTriangleApplication
         vkFreeMemory(device, stagingBufferMemory, nullptr);
 
         generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth,
-                        texHeight, mipLevels);
+                        texHeight, textureMipLevels);
+    }
+
+    void createNormalImage()
+    {
+        int texWidth, texHeight, texChannels;
+        stbi_uc *pixels = stbi_load(NORMAL_PATH.c_str(), &texWidth, &texHeight,
+                                    &texChannels, STBI_rgb_alpha);
+        VkDeviceSize imageSize = texWidth * texHeight * 4;
+        normalMipLevels = static_cast<uint32_t>(
+                        std::floor(std::log2(std::max(texWidth, texHeight)))) +
+                    1;
+
+        if (!pixels)
+        {
+            throw std::runtime_error("failed to load normal image!");
+        }
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     stagingBuffer, stagingBufferMemory);
+
+        void *data;
+        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        stbi_image_free(pixels);
+
+        createImage(texWidth, texHeight, normalMipLevels, VK_SAMPLE_COUNT_1_BIT,
+                    VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                        VK_IMAGE_USAGE_SAMPLED_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, normalImage,
+                    normalImageMemory);
+
+        transitionImageLayout(normalImage, VK_FORMAT_R8G8B8A8_UNORM,
+                              VK_IMAGE_LAYOUT_UNDEFINED,
+                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, normalMipLevels);
+        copyBufferToImage(stagingBuffer, normalImage,
+                          static_cast<uint32_t>(texWidth),
+                          static_cast<uint32_t>(texHeight));
+        // transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while
+        // generating mipmaps
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+        generateMipmaps(normalImage, VK_FORMAT_R8G8B8A8_UNORM, texWidth,
+                        texHeight, normalMipLevels);
     }
 
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth,
@@ -1175,7 +1246,14 @@ class HelloTriangleApplication
     {
         textureImageView =
             createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-                            VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+                            VK_IMAGE_ASPECT_COLOR_BIT, textureMipLevels);
+    }
+
+    void createNormalImageView()
+    {
+        normalImageView =
+            createImageView(normalImage, VK_FORMAT_R8G8B8A8_UNORM,
+                            VK_IMAGE_ASPECT_COLOR_BIT, normalMipLevels);
     }
 
     void createTextureSampler()
@@ -1198,13 +1276,43 @@ class HelloTriangleApplication
         samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
         samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(mipLevels);
+        samplerInfo.maxLod = static_cast<float>(textureMipLevels);
         samplerInfo.mipLodBias = 0.0f;
 
         if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) !=
             VK_SUCCESS)
         {
             throw std::runtime_error("failed to create texture sampler!");
+        }
+    }
+
+    void createNormalSampler()
+    {
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = static_cast<float>(normalMipLevels);
+        samplerInfo.mipLodBias = 0.0f;
+
+        if (vkCreateSampler(device, &samplerInfo, nullptr, &normalSampler) !=
+            VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create normal sampler!");
         }
     }
 
@@ -1495,8 +1603,8 @@ class HelloTriangleApplication
                 VkDescriptorImageInfo imageInfo{};
                 imageInfo.imageLayout =
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                imageInfo.imageView = textureImageView;
-                imageInfo.sampler = textureSampler;
+                imageInfo.imageView = normalImageView;
+                imageInfo.sampler = normalSampler;
 
                 std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
@@ -1698,7 +1806,6 @@ class HelloTriangleApplication
 
         for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            if (i < 10) continue;
             vkCmdBindDescriptorSets(
                 commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                 0, 1, &shapes_all[i].descriptorSets[currentFrame], 0, nullptr);
