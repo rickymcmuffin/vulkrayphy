@@ -231,12 +231,7 @@ class HelloTriangleApplication
         createColorResources();
         createDepthResources();
         createFramebuffers();
-        createTextureImage();
-        createTextureImageView();
-        createTextureSampler();
-        createNormalImage();
-        createNormalImageView();
-        createNormalSampler();
+        createTextures();
         loadModel();
         createVertexBuffer();
         createIndexBuffer();
@@ -751,7 +746,8 @@ class HelloTriangleApplication
         normalSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
-            uboLayoutBinding, textureSamplerLayoutBinding, normalSamplerLayoutBinding};
+            uboLayoutBinding, textureSamplerLayoutBinding,
+            normalSamplerLayoutBinding};
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1017,15 +1013,31 @@ class HelloTriangleApplication
                format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
-    void createMapImage(VkFormat format, VkImage *mapImage, VkDeviceMemory *mapImageMemory, uint32_t *mapMipLevels)
+    void createTextures()
+    {
+        createMapImage(&textureImage, &textureImageMemory, &textureMipLevels);
+
+        textureImageView =
+            createMapImageView(textureImage, textureMipLevels);
+        createMapSampler(&textureSampler, textureMipLevels);
+
+        createMapImage(&normalImage, &normalImageMemory, &normalMipLevels);
+
+        normalImageView =
+            createMapImageView(normalImage, normalMipLevels);
+        createMapSampler(&normalSampler, normalMipLevels);
+    }
+
+    void createMapImage(VkImage *mapImage, VkDeviceMemory *mapImageMemory,
+                        uint32_t *mapMipLevels)
     {
         int mapWidth, mapHeight, mapChannels;
         stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &mapWidth, &mapHeight,
                                     &mapChannels, STBI_rgb_alpha);
         VkDeviceSize imageSize = mapWidth * mapHeight * 4;
-        *mapMipLevels = static_cast<uint32_t>(
-                        std::floor(std::log2(std::max(mapWidth, mapHeight)))) +
-                    1;
+        *mapMipLevels = static_cast<uint32_t>(std::floor(
+                            std::log2(std::max(mapWidth, mapHeight)))) +
+                        1;
 
         if (!pixels)
         {
@@ -1046,17 +1058,16 @@ class HelloTriangleApplication
 
         stbi_image_free(pixels);
 
-        createImage(mapWidth, mapHeight, *mapMipLevels, VK_SAMPLE_COUNT_1_BIT,
-                    format, VK_IMAGE_TILING_OPTIMAL,
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                        VK_IMAGE_USAGE_SAMPLED_BIT,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *mapImage,
-                    *mapImageMemory);
+        createImage(
+            mapWidth, mapHeight, *mapMipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *mapImage, *mapImageMemory);
 
-        transitionImageLayout(*mapImage, format,
-                              VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *mapMipLevels);
+        transitionImageLayout(*mapImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
+                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                              *mapMipLevels);
         copyBufferToImage(stagingBuffer, *mapImage,
                           static_cast<uint32_t>(mapWidth),
                           static_cast<uint32_t>(mapHeight));
@@ -1066,114 +1077,7 @@ class HelloTriangleApplication
         vkDestroyBuffer(device, stagingBuffer, nullptr);
         vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-        generateMipmaps(*mapImage, format, mapWidth,
-                        mapHeight, *mapMipLevels);
-    }
-
-    void createTextureImage()
-    {
-        int texWidth, texHeight, texChannels;
-        stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight,
-                                    &texChannels, STBI_rgb_alpha);
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
-        textureMipLevels = static_cast<uint32_t>(
-                        std::floor(std::log2(std::max(texWidth, texHeight)))) +
-                    1;
-
-        if (!pixels)
-        {
-            throw std::runtime_error("failed to load texture image!");
-        }
-
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     stagingBuffer, stagingBufferMemory);
-
-        void *data;
-        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(device, stagingBufferMemory);
-
-        stbi_image_free(pixels);
-
-        createImage(texWidth, texHeight, textureMipLevels, VK_SAMPLE_COUNT_1_BIT,
-                    VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                        VK_IMAGE_USAGE_SAMPLED_BIT,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage,
-                    textureImageMemory);
-
-        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM,
-                              VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, textureMipLevels);
-        copyBufferToImage(stagingBuffer, textureImage,
-                          static_cast<uint32_t>(texWidth),
-                          static_cast<uint32_t>(texHeight));
-        // transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while
-        // generating mipmaps
-
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
-
-        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_UNORM, texWidth,
-                        texHeight, textureMipLevels);
-    }
-
-    void createNormalImage()
-    {
-        int texWidth, texHeight, texChannels;
-        stbi_uc *pixels = stbi_load(NORMAL_PATH.c_str(), &texWidth, &texHeight,
-                                    &texChannels, STBI_rgb_alpha);
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
-        normalMipLevels = static_cast<uint32_t>(
-                        std::floor(std::log2(std::max(texWidth, texHeight)))) +
-                    1;
-
-        if (!pixels)
-        {
-            throw std::runtime_error("failed to load normal image!");
-        }
-
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                     stagingBuffer, stagingBufferMemory);
-
-        void *data;
-        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(device, stagingBufferMemory);
-
-        stbi_image_free(pixels);
-
-        createImage(texWidth, texHeight, normalMipLevels, VK_SAMPLE_COUNT_1_BIT,
-                    VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                        VK_IMAGE_USAGE_SAMPLED_BIT,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, normalImage,
-                    normalImageMemory);
-
-        transitionImageLayout(normalImage, VK_FORMAT_R8G8B8A8_UNORM,
-                              VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, normalMipLevels);
-        copyBufferToImage(stagingBuffer, normalImage,
-                          static_cast<uint32_t>(texWidth),
-                          static_cast<uint32_t>(texHeight));
-        // transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while
-        // generating mipmaps
-
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
-
-        generateMipmaps(normalImage, VK_FORMAT_R8G8B8A8_UNORM, texWidth,
-                        texHeight, normalMipLevels);
+        generateMipmaps(*mapImage, VK_FORMAT_R8G8B8A8_UNORM, mapWidth, mapHeight, *mapMipLevels);
     }
 
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth,
@@ -1303,30 +1207,15 @@ class HelloTriangleApplication
         return VK_SAMPLE_COUNT_1_BIT;
     }
 
-    VkImageView createMapImageView(VkFormat format, VkImage mapImage, uint32_t mapMipLevels)
+    VkImageView createMapImageView(VkImage mapImage, uint32_t mapMipLevels)
     {
-        VkImageView mapImageView =
-            createImageView(mapImage, format,
-                            VK_IMAGE_ASPECT_COLOR_BIT, mapMipLevels);
+        VkImageView mapImageView = createImageView(
+            mapImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, mapMipLevels);
 
         return mapImageView;
     }
 
-    void createTextureImageView()
-    {
-        textureImageView =
-            createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM,
-                            VK_IMAGE_ASPECT_COLOR_BIT, textureMipLevels);
-    }
-
-    void createNormalImageView()
-    {
-        normalImageView =
-            createImageView(normalImage, VK_FORMAT_R8G8B8A8_UNORM,
-                            VK_IMAGE_ASPECT_COLOR_BIT, normalMipLevels);
-    }
-
-    void createTextureSampler()
+    void createMapSampler(VkSampler *sampler, uint32_t mipLevels)
     {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -1346,43 +1235,13 @@ class HelloTriangleApplication
         samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
         samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(textureMipLevels);
+        samplerInfo.maxLod = static_cast<float>(mipLevels);
         samplerInfo.mipLodBias = 0.0f;
 
-        if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) !=
+        if (vkCreateSampler(device, &samplerInfo, nullptr, sampler) !=
             VK_SUCCESS)
         {
             throw std::runtime_error("failed to create texture sampler!");
-        }
-    }
-
-    void createNormalSampler()
-    {
-        VkPhysicalDeviceProperties properties{};
-        vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.anisotropyEnable = VK_TRUE;
-        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(normalMipLevels);
-        samplerInfo.mipLodBias = 0.0f;
-
-        if (vkCreateSampler(device, &samplerInfo, nullptr, &normalSampler) !=
-            VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to create normal sampler!");
         }
     }
 
@@ -1949,7 +1808,7 @@ class HelloTriangleApplication
             UniformBufferObject ubo{};
 
             ubo.model = gameState.getModelMatrix(i);
-                       
+
             ubo.view = gameState.getCamera().GetViewMatrix();
             ubo.proj = glm::perspective(glm::radians(60.0f),
                                         swapChainExtent.width /

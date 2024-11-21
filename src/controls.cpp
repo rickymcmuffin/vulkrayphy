@@ -149,7 +149,8 @@ void GameState::printLogs()
     {
         std::cout << "\rFPS: " << frameCounter
                   << " | Camera Pos: " << glm::to_string(camera.Position)
-                  << " | Ball Pos: " << glm::to_string(whiteBall.rotation);
+                  << " | Ball Pos: " << glm::to_string(whiteBall.rotation)
+                  << "                        ";
         frameCounter = 0;
         last_time = glfwGetTime();
     }
