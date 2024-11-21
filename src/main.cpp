@@ -1017,6 +1017,59 @@ class HelloTriangleApplication
                format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
+    void createMapImage(VkFormat format, VkImage *mapImage, VkDeviceMemory *mapImageMemory, uint32_t *mapMipLevels)
+    {
+        int mapWidth, mapHeight, mapChannels;
+        stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &mapWidth, &mapHeight,
+                                    &mapChannels, STBI_rgb_alpha);
+        VkDeviceSize imageSize = mapWidth * mapHeight * 4;
+        *mapMipLevels = static_cast<uint32_t>(
+                        std::floor(std::log2(std::max(mapWidth, mapHeight)))) +
+                    1;
+
+        if (!pixels)
+        {
+            throw std::runtime_error("failed to load map image!");
+        }
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     stagingBuffer, stagingBufferMemory);
+
+        void *data;
+        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, pixels, static_cast<size_t>(imageSize));
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        stbi_image_free(pixels);
+
+        createImage(mapWidth, mapHeight, *mapMipLevels, VK_SAMPLE_COUNT_1_BIT,
+                    format, VK_IMAGE_TILING_OPTIMAL,
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                        VK_IMAGE_USAGE_SAMPLED_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *mapImage,
+                    *mapImageMemory);
+
+        transitionImageLayout(*mapImage, format,
+                              VK_IMAGE_LAYOUT_UNDEFINED,
+                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *mapMipLevels);
+        copyBufferToImage(stagingBuffer, *mapImage,
+                          static_cast<uint32_t>(mapWidth),
+                          static_cast<uint32_t>(mapHeight));
+        // transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while
+        // generating mipmaps
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+        generateMipmaps(*mapImage, format, mapWidth,
+                        mapHeight, *mapMipLevels);
+    }
+
     void createTextureImage()
     {
         int texWidth, texHeight, texChannels;
@@ -1248,6 +1301,15 @@ class HelloTriangleApplication
         }
 
         return VK_SAMPLE_COUNT_1_BIT;
+    }
+
+    VkImageView createMapImageView(VkFormat format, VkImage mapImage, uint32_t mapMipLevels)
+    {
+        VkImageView mapImageView =
+            createImageView(mapImage, format,
+                            VK_IMAGE_ASPECT_COLOR_BIT, mapMipLevels);
+
+        return mapImageView;
     }
 
     void createTextureImageView()
