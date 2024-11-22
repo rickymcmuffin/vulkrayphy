@@ -24,12 +24,12 @@ vec3 vec3ToSrgb(vec3 value) {
 
 void main() {
     vec3 color;
-    color = texture(texSampler, fragTexCoord).rgb;
+    color = texture(normSampler, fragTexCoord).rgb;
 
     color = vec3ToSrgb(color);
 
-    // outColor = vec4(color, 1.0);
-    outColor = vec4(ubo.color, 1.0);
+    outColor = vec4(color, 1.0);
+    // outColor = vec4(ubo.color, 1.0);
 
 
 }

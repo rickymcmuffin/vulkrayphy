@@ -1032,13 +1032,13 @@ class HelloTriangleApplication
 
     void createTextures()
     {
-        createMapImage(&textureImage, &textureImageMemory, &textureMipLevels);
+        createMapImage(&textureImage, &textureImageMemory, &textureMipLevels, TEXTURE_PATH);
 
         textureImageView =
             createMapImageView(textureImage, textureMipLevels);
         createMapSampler(&textureSampler, textureMipLevels);
 
-        createMapImage(&normalImage, &normalImageMemory, &normalMipLevels);
+        createMapImage(&normalImage, &normalImageMemory, &normalMipLevels, NORMAL_PATH);
 
         normalImageView =
             createMapImageView(normalImage, normalMipLevels);
@@ -1046,10 +1046,10 @@ class HelloTriangleApplication
     }
 
     void createMapImage(VkImage *mapImage, VkDeviceMemory *mapImageMemory,
-                        uint32_t *mapMipLevels)
+                        uint32_t *mapMipLevels, std::string mapPath)
     {
         int mapWidth, mapHeight, mapChannels;
-        stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &mapWidth, &mapHeight,
+        stbi_uc *pixels = stbi_load(mapPath.c_str(), &mapWidth, &mapHeight,
                                     &mapChannels, STBI_rgb_alpha);
         VkDeviceSize imageSize = mapWidth * mapHeight * 4;
         *mapMipLevels = static_cast<uint32_t>(std::floor(

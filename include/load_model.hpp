@@ -22,9 +22,10 @@
 
 struct Vertex
 {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
+    alignas(16) glm::vec3 pos;
+    alignas(16) glm::vec3 color;
+    alignas(8) glm::vec2 texCoord;
+    alignas(16) glm::vec3 normal;
 
     static VkVertexInputBindingDescription getBindingDescription()
     {
@@ -105,6 +106,10 @@ struct LMRetValue
 };
 
 const std::string _LM_MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
+
+
+inline void addNormals(std::vector<Vertex> &vertices){
+}
 
 // this edits the vertices parameter to center the shape
 inline void centerPolygon(Shape shape, std::vector<uint32_t> indices,
@@ -226,6 +231,7 @@ inline LMRetValue lmLoadModel()
     // for (size_t i = 10; i < shapes_all.size(); i++){
     //     centerPolygon(shapes_all[i], indices, vertices);
     // }
+    std::cout << "Num Vertices: " << indices.size() << std::endl;
     LMRetValue ret{};
     ret.vertices = vertices;
     ret.indices = indices;
