@@ -1,3 +1,4 @@
+#include <glm/ext/vector_float3.hpp>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -37,10 +38,14 @@ const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
 const std::string MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
-const std::string TEXTURE_PATH =
+const std::string ALBEDO_PATH =
     "assets/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
 const std::string NORMAL_PATH =
     "assets/models/pool_table/pool_table low_POOL TABLE_Normal.png";
+const std::string METALLIC_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_Metallic.png";
+const std::string ROUGHNESS_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_Roughness.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -103,12 +108,14 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct Texture{
-    uint32_t MipLevels;
-    VkImage Image;
-    VkDeviceMemory ImageMemory;
-    VkImageView ImageView;
-    VkSampler Sampler;
+struct TextureMap
+{
+    std::string filePath;
+    uint32_t mipLevels;
+    VkImage image;
+    VkDeviceMemory imageMemory;
+    VkImageView imageView;
+    VkSampler sampler;
 };
 
 struct VertUniformBufferObject
@@ -116,6 +123,8 @@ struct VertUniformBufferObject
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat3 normalMatrix;
+
 };
 
 struct FragUniformBufferObject
@@ -173,17 +182,22 @@ class HelloTriangleApplication
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
 
-    uint32_t textureMipLevels;
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
+    // uint32_t textureMipLevels;
+    // VkImage textureImage;
+    // VkDeviceMemory textureImageMemory;
+    // VkImageView textureImageView;
+    // VkSampler textureSampler;
+    //
+    // uint32_t normalMipLevels;
+    // VkImage normalImage;
+    // VkDeviceMemory normalImageMemory;
+    // VkImageView normalImageView;
+    // VkSampler normalSampler;
 
-    uint32_t normalMipLevels;
-    VkImage normalImage;
-    VkDeviceMemory normalImageMemory;
-    VkImageView normalImageView;
-    VkSampler normalSampler;
+    TextureMap albedoMap;
+    TextureMap normalMap;
+    TextureMap metallicMap;
+    TextureMap roughnessMap;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -308,6 +322,14 @@ class HelloTriangleApplication
         vkDestroySwapchainKHR(device, swapChain, nullptr);
     }
 
+    void cleanupTextureMap(TextureMap map)
+    {
+        vkDestroySampler(device, map.sampler, nullptr);
+        vkDestroyImageView(device, map.imageView, nullptr);
+        vkDestroyImage(device, map.image, nullptr);
+        vkFreeMemory(device, map.imageMemory, nullptr);
+    }
+
     void cleanup()
     {
         cleanupSwapChain();
@@ -334,17 +356,10 @@ class HelloTriangleApplication
 
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-        vkDestroySampler(device, textureSampler, nullptr);
-        vkDestroyImageView(device, textureImageView, nullptr);
-
-        vkDestroyImage(device, textureImage, nullptr);
-        vkFreeMemory(device, textureImageMemory, nullptr);
-
-        vkDestroySampler(device, normalSampler, nullptr);
-        vkDestroyImageView(device, normalImageView, nullptr);
-
-        vkDestroyImage(device, normalImage, nullptr);
-        vkFreeMemory(device, normalImageMemory, nullptr);
+        cleanupTextureMap(albedoMap);
+        cleanupTextureMap(normalMap);
+        cleanupTextureMap(metallicMap);
+        cleanupTextureMap(roughnessMap);
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
@@ -757,13 +772,13 @@ class HelloTriangleApplication
         fragUboLayoutBinding.pImmutableSamplers = nullptr;
         fragUboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        VkDescriptorSetLayoutBinding textureSamplerLayoutBinding{};
-        textureSamplerLayoutBinding.binding = 2;
-        textureSamplerLayoutBinding.descriptorCount = 1;
-        textureSamplerLayoutBinding.descriptorType =
+        VkDescriptorSetLayoutBinding albedoSamplerLayoutBinding{};
+        albedoSamplerLayoutBinding.binding = 2;
+        albedoSamplerLayoutBinding.descriptorCount = 1;
+        albedoSamplerLayoutBinding.descriptorType =
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        textureSamplerLayoutBinding.pImmutableSamplers = nullptr;
-        textureSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        albedoSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        albedoSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutBinding normalSamplerLayoutBinding{};
         normalSamplerLayoutBinding.binding = 3;
@@ -773,9 +788,26 @@ class HelloTriangleApplication
         normalSamplerLayoutBinding.pImmutableSamplers = nullptr;
         normalSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 4> bindings = {
-            vertUboLayoutBinding, fragUboLayoutBinding, textureSamplerLayoutBinding,
-            normalSamplerLayoutBinding};
+        VkDescriptorSetLayoutBinding metallicSamplerLayoutBinding{};
+        metallicSamplerLayoutBinding.binding = 4;
+        metallicSamplerLayoutBinding.descriptorCount = 1;
+        metallicSamplerLayoutBinding.descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        metallicSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        metallicSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutBinding roughnessSamplerLayoutBinding{};
+        roughnessSamplerLayoutBinding.binding = 5;
+        roughnessSamplerLayoutBinding.descriptorCount = 1;
+        roughnessSamplerLayoutBinding.descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        roughnessSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        roughnessSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 6> bindings = {
+            vertUboLayoutBinding,         fragUboLayoutBinding,
+            albedoSamplerLayoutBinding,   normalSamplerLayoutBinding,
+            metallicSamplerLayoutBinding, roughnessSamplerLayoutBinding};
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1043,17 +1075,23 @@ class HelloTriangleApplication
 
     void createTextures()
     {
-        createMapImage(&textureImage, &textureImageMemory, &textureMipLevels, TEXTURE_PATH);
+        albedoMap.filePath = ALBEDO_PATH;
+        normalMap.filePath = NORMAL_PATH;
+        metallicMap.filePath = METALLIC_PATH;
+        roughnessMap.filePath = ROUGHNESS_PATH;
+        createMap(&albedoMap);
+        createMap(&normalMap);
+        createMap(&metallicMap);
+        createMap(&roughnessMap);
+    }
 
-        textureImageView =
-            createMapImageView(textureImage, textureMipLevels);
-        createMapSampler(&textureSampler, textureMipLevels);
+    void createMap(TextureMap *map)
+    {
+        createMapImage(&map->image, &map->imageMemory, &map->mipLevels,
+                       map->filePath);
 
-        createMapImage(&normalImage, &normalImageMemory, &normalMipLevels, NORMAL_PATH);
-
-        normalImageView =
-            createMapImageView(normalImage, normalMipLevels);
-        createMapSampler(&normalSampler, normalMipLevels);
+        map->imageView = createMapImageView(map->image, map->mipLevels);
+        createMapSampler(&map->sampler, map->mipLevels);
     }
 
     void createMapImage(VkImage *mapImage, VkDeviceMemory *mapImageMemory,
@@ -1087,15 +1125,15 @@ class HelloTriangleApplication
         stbi_image_free(pixels);
 
         createImage(
-            mapWidth, mapHeight, *mapMipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM,
-            VK_IMAGE_TILING_OPTIMAL,
+            mapWidth, mapHeight, *mapMipLevels, VK_SAMPLE_COUNT_1_BIT,
+            VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                 VK_IMAGE_USAGE_SAMPLED_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *mapImage, *mapImageMemory);
 
-        transitionImageLayout(*mapImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                              *mapMipLevels);
+        transitionImageLayout(
+            *mapImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *mapMipLevels);
         copyBufferToImage(stagingBuffer, *mapImage,
                           static_cast<uint32_t>(mapWidth),
                           static_cast<uint32_t>(mapHeight));
@@ -1105,7 +1143,8 @@ class HelloTriangleApplication
         vkDestroyBuffer(device, stagingBuffer, nullptr);
         vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-        generateMipmaps(*mapImage, VK_FORMAT_R8G8B8A8_UNORM, mapWidth, mapHeight, *mapMipLevels);
+        generateMipmaps(*mapImage, VK_FORMAT_R8G8B8A8_UNORM, mapWidth,
+                        mapHeight, *mapMipLevels);
     }
 
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth,
@@ -1237,8 +1276,9 @@ class HelloTriangleApplication
 
     VkImageView createMapImageView(VkImage mapImage, uint32_t mapMipLevels)
     {
-        VkImageView mapImageView = createImageView(
-            mapImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, mapMipLevels);
+        VkImageView mapImageView =
+            createImageView(mapImage, VK_FORMAT_R8G8B8A8_UNORM,
+                            VK_IMAGE_ASPECT_COLOR_BIT, mapMipLevels);
 
         return mapImageView;
     }
@@ -1498,8 +1538,8 @@ class HelloTriangleApplication
                              shapes_all[i].vertUniformBuffers[j],
                              shapes_all[i].vertUniformBuffersMemory[j]);
 
-                vkMapMemory(device, shapes_all[i].vertUniformBuffersMemory[j], 0,
-                            vertBufferSize, 0,
+                vkMapMemory(device, shapes_all[i].vertUniformBuffersMemory[j],
+                            0, vertBufferSize, 0,
                             &shapes_all[i].vertUniformBuffersMapped[j]);
             }
         }
@@ -1520,8 +1560,8 @@ class HelloTriangleApplication
                              shapes_all[i].fragUniformBuffers[j],
                              shapes_all[i].fragUniformBuffersMemory[j]);
 
-                vkMapMemory(device, shapes_all[i].fragUniformBuffersMemory[j], 0,
-                            fragBufferSize, 0,
+                vkMapMemory(device, shapes_all[i].fragUniformBuffersMemory[j],
+                            0, fragBufferSize, 0,
                             &shapes_all[i].fragUniformBuffersMapped[j]);
             }
         }
@@ -1584,19 +1624,31 @@ class HelloTriangleApplication
                 fragBufferInfo.offset = 0;
                 fragBufferInfo.range = sizeof(FragUniformBufferObject);
 
-                VkDescriptorImageInfo textureImageInfo{};
-                textureImageInfo.imageLayout =
+                VkDescriptorImageInfo albedoImageInfo{};
+                albedoImageInfo.imageLayout =
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                textureImageInfo.imageView = textureImageView;
-                textureImageInfo.sampler = textureSampler;
+                albedoImageInfo.imageView = albedoMap.imageView;
+                albedoImageInfo.sampler = albedoMap.sampler;
 
                 VkDescriptorImageInfo normalImageInfo{};
                 normalImageInfo.imageLayout =
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                normalImageInfo.imageView = normalImageView;
-                normalImageInfo.sampler = normalSampler;
+                normalImageInfo.imageView = normalMap.imageView;
+                normalImageInfo.sampler = normalMap.sampler;
 
-                std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+                VkDescriptorImageInfo metallicImageInfo{};
+                metallicImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                metallicImageInfo.imageView = metallicMap.imageView;
+                metallicImageInfo.sampler = metallicMap.sampler;
+
+                VkDescriptorImageInfo roughnessImageInfo{};
+                roughnessImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                roughnessImageInfo.imageView = roughnessMap.imageView;
+                roughnessImageInfo.sampler = roughnessMap.sampler;
+
+                std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
 
                 descriptorWrites[0].sType =
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1626,7 +1678,7 @@ class HelloTriangleApplication
                 descriptorWrites[2].descriptorType =
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 descriptorWrites[2].descriptorCount = 1;
-                descriptorWrites[2].pImageInfo = &textureImageInfo;
+                descriptorWrites[2].pImageInfo = &albedoImageInfo;
 
                 descriptorWrites[3].sType =
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1637,6 +1689,26 @@ class HelloTriangleApplication
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 descriptorWrites[3].descriptorCount = 1;
                 descriptorWrites[3].pImageInfo = &normalImageInfo;
+
+                descriptorWrites[4].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[4].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[4].dstBinding = 4;
+                descriptorWrites[4].dstArrayElement = 0;
+                descriptorWrites[4].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[4].descriptorCount = 1;
+                descriptorWrites[4].pImageInfo = &metallicImageInfo;
+
+                descriptorWrites[5].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[5].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[5].dstBinding = 5;
+                descriptorWrites[5].dstArrayElement = 0;
+                descriptorWrites[5].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[5].descriptorCount = 1;
+                descriptorWrites[5].pImageInfo = &roughnessImageInfo;
 
                 vkUpdateDescriptorSets(
                     device, static_cast<uint32_t>(descriptorWrites.size()),
@@ -1876,16 +1948,24 @@ class HelloTriangleApplication
 
             vubo.view = gameState.getCamera().GetViewMatrix();
             vubo.proj = glm::perspective(glm::radians(60.0f),
-                                        swapChainExtent.width /
-                                            (float)swapChainExtent.height,
-                                        0.1f, 50.0f);
+                                         swapChainExtent.width /
+                                             (float)swapChainExtent.height,
+                                         0.1f, 50.0f);
             vubo.proj[1][1] *= -1;
+
+            vubo.normalMatrix = glm::mat3(glm::transpose(glm::inverse((vubo.model))));
 
             memcpy(shapes_all[i].vertUniformBuffersMapped[currentImage], &vubo,
                    sizeof(vubo));
 
+
             FragUniformBufferObject fubo{};
             fubo.color = glm::vec3(0.5f, 0.2f, 1.0f);
+            fubo.camPos = gameState.getCamera().Position;
+            // fubo.lightPos = glm::vec3(0.0f, 3.0f, 0.0f);
+            fubo.lightPos = gameState.getObjectPos(10);
+            fubo.lightColor = glm::vec3(5.0f);
+
 
             memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
                    sizeof(fubo));

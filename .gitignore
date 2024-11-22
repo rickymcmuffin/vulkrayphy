@@ -34,5 +34,6 @@
 src/textures
 *.spv
 src/models
-build-windows/
+build_windows/
+build_linux/
 assets/

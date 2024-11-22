@@ -81,7 +81,8 @@ GameState::GameState()
              PITCH)
 {
     whiteBall = {};
-    whiteBall.pos = glm::vec3(-TABLE_LENGTH, TABLE_HEIGHT, 0.0f);
+    // whiteBall.pos = glm::vec3(-TABLE_LENGTH, TABLE_HEIGHT, 0.0f);
+    whiteBall.pos = glm::vec3(0.0f, 0.0f, 0.0f);
     whiteBall.velocity = glm::vec3(0.5f, 0.0f, 0.0f);
     whiteBall.rotation = glm::vec3(1.0f, 1.0f, 1.0f);
 }
@@ -97,23 +98,29 @@ void GameState::updateGame(GLFWwindow *window, float deltaTime)
 void GameState::updateBalls(float deltaTime)
 {
     Ball newBall = whiteBall;
-    newBall.pos += whiteBall.velocity * deltaTime;
+    // newBall.pos += whiteBall.velocity * deltaTime;
+    //
+    // if (newBall.pos.x > TABLE_LENGTH)
+    // {
+    //     newBall.pos.x = TABLE_LENGTH - (whiteBall.pos.x - TABLE_LENGTH);
+    //     newBall.velocity.x = -whiteBall.velocity.x;
+    // }
+    //
+    // if (newBall.pos.x < -TABLE_LENGTH)
+    // {
+    //     newBall.pos.x = -TABLE_LENGTH + (-TABLE_LENGTH - whiteBall.pos.x);
+    //     newBall.velocity.x = -whiteBall.velocity.x;
+    // }
+    //
+    // auto delta_pos = newBall.pos - whiteBall.pos;
+    //
+    // newBall.rotation += delta_pos / BALL_CIRCUMFRANCE /1.0f;
 
-    if (newBall.pos.x > TABLE_LENGTH)
-    {
-        newBall.pos.x = TABLE_LENGTH - (whiteBall.pos.x - TABLE_LENGTH);
-        newBall.velocity.x = -whiteBall.velocity.x;
-    }
-
-    if (newBall.pos.x < -TABLE_LENGTH)
-    {
-        newBall.pos.x = -TABLE_LENGTH + (-TABLE_LENGTH - whiteBall.pos.x);
-        newBall.velocity.x = -whiteBall.velocity.x;
-    }
-
-    auto delta_pos = newBall.pos - whiteBall.pos;
-
-    newBall.rotation += delta_pos / BALL_CIRCUMFRANCE /1.0f;
+    newBall.pos = glm::vec3(1.5f, 0.0f, 0.0f);
+    newBall.pos =
+        glm::rotate(glm::mat4(1.0f), 0.5f * (float) glfwGetTime() * glm::radians(90.0f),
+                    glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(newBall.pos, 1.0f);
+    newBall.pos.y += 1.0f;
 
     whiteBall = newBall;
 }
@@ -122,7 +129,7 @@ glm::mat4 GameState::getModelMatrix(size_t index)
 {
 
     glm::mat4 ret = glm::mat4(1.0f);
-    if (index == 16)
+    if (index == WHITE_BALL)
     {
         ret = glm::translate(ret, whiteBall.pos);
         ret = glm::rotate(ret, whiteBall.rotation.x * -glm::radians(180.0f),
@@ -139,6 +146,8 @@ glm::mat4 GameState::getModelMatrix(size_t index)
 
     return ret;
 }
+
+glm::vec3 GameState::getObjectPos(size_t index) { return whiteBall.pos; }
 
 Camera GameState::getCamera() { return camera; }
 

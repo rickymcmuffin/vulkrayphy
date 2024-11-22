@@ -203,12 +203,9 @@ inline LMRetValue lmLoadModel()
 
             // Check if `normal_index` is zero or positive. negative = no normal
             // data
-            if (index.normal_index >= 0)
-            {
                 vertex.normal = {attrib.normals[3 * index.normal_index + 0],
                               attrib.normals[3 * index.normal_index + 1],
-                              attrib.vertices[3 * index.normal_index + 2]};
-            }
+                              attrib.normals[3 * index.normal_index + 2]};
 
             vertex.color = {1.0f, 1.0f, 1.0f};
 
@@ -244,6 +241,7 @@ inline LMRetValue lmLoadModel()
     // for (size_t i = 10; i < shapes_all.size(); i++){
     //     centerPolygon(shapes_all[i], indices, vertices);
     // }
+    centerPolygon(shapes_all[10], indices, vertices);
     std::cout << "Num Vertices: " << vertices.size() << std::endl;
     LMRetValue ret{};
     ret.vertices = vertices;

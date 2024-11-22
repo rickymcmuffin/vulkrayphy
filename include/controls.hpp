@@ -17,6 +17,7 @@ class GameState
     void updateGame(GLFWwindow *window, float deltaTime);
     Camera getCamera();
     glm::mat4 getModelMatrix(size_t index);
+    glm::vec3 getObjectPos(size_t index);
 
   private:
     struct Ball{
