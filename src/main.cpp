@@ -103,11 +103,16 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct UniformBufferObject
+struct VertUniformBufferObject
 {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
+};
+
+struct FragUniformBufferObject
+{
+    alignas(16) glm::vec3 color;
 };
 
 class HelloTriangleApplication
@@ -304,9 +309,14 @@ class HelloTriangleApplication
         {
             for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
             {
-                vkDestroyBuffer(device, shapes_all[i].uniformBuffers[j],
+                vkDestroyBuffer(device, shapes_all[i].vertUniformBuffers[j],
                                 nullptr);
-                vkFreeMemory(device, shapes_all[i].uniformBuffersMemory[j],
+                vkFreeMemory(device, shapes_all[i].vertUniformBuffersMemory[j],
+                             nullptr);
+
+                vkDestroyBuffer(device, shapes_all[i].fragUniformBuffers[j],
+                                nullptr);
+                vkFreeMemory(device, shapes_all[i].fragUniformBuffersMemory[j],
                              nullptr);
             }
         }
@@ -722,15 +732,22 @@ class HelloTriangleApplication
 
     void createDescriptorSetLayout()
     {
-        VkDescriptorSetLayoutBinding uboLayoutBinding{};
-        uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.pImmutableSamplers = nullptr;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        VkDescriptorSetLayoutBinding vertUboLayoutBinding{};
+        vertUboLayoutBinding.binding = 0;
+        vertUboLayoutBinding.descriptorCount = 1;
+        vertUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        vertUboLayoutBinding.pImmutableSamplers = nullptr;
+        vertUboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        VkDescriptorSetLayoutBinding fragUboLayoutBinding{};
+        fragUboLayoutBinding.binding = 1;
+        fragUboLayoutBinding.descriptorCount = 1;
+        fragUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        fragUboLayoutBinding.pImmutableSamplers = nullptr;
+        fragUboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutBinding textureSamplerLayoutBinding{};
-        textureSamplerLayoutBinding.binding = 1;
+        textureSamplerLayoutBinding.binding = 2;
         textureSamplerLayoutBinding.descriptorCount = 1;
         textureSamplerLayoutBinding.descriptorType =
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -738,15 +755,15 @@ class HelloTriangleApplication
         textureSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
         VkDescriptorSetLayoutBinding normalSamplerLayoutBinding{};
-        normalSamplerLayoutBinding.binding = 2;
+        normalSamplerLayoutBinding.binding = 3;
         normalSamplerLayoutBinding.descriptorCount = 1;
         normalSamplerLayoutBinding.descriptorType =
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         normalSamplerLayoutBinding.pImmutableSamplers = nullptr;
         normalSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
-            uboLayoutBinding, textureSamplerLayoutBinding,
+        std::array<VkDescriptorSetLayoutBinding, 4> bindings = {
+            vertUboLayoutBinding, fragUboLayoutBinding, textureSamplerLayoutBinding,
             normalSamplerLayoutBinding};
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1454,25 +1471,47 @@ class HelloTriangleApplication
 
     void createUniformBuffers()
     {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+        VkDeviceSize vertBufferSize = sizeof(VertUniformBufferObject);
 
         for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            shapes_all[i].uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-            shapes_all[i].uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-            shapes_all[i].uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].vertUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].vertUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].vertUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
             for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
             {
-                createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                createBuffer(vertBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                             shapes_all[i].uniformBuffers[j],
-                             shapes_all[i].uniformBuffersMemory[j]);
+                             shapes_all[i].vertUniformBuffers[j],
+                             shapes_all[i].vertUniformBuffersMemory[j]);
 
-                vkMapMemory(device, shapes_all[i].uniformBuffersMemory[j], 0,
-                            bufferSize, 0,
-                            &shapes_all[i].uniformBuffersMapped[j]);
+                vkMapMemory(device, shapes_all[i].vertUniformBuffersMemory[j], 0,
+                            vertBufferSize, 0,
+                            &shapes_all[i].vertUniformBuffersMapped[j]);
+            }
+        }
+
+        VkDeviceSize fragBufferSize = sizeof(FragUniformBufferObject);
+
+        for (size_t i = 0; i < shapes_all.size(); i++)
+        {
+            shapes_all[i].fragUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].fragUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].fragUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                createBuffer(fragBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             shapes_all[i].fragUniformBuffers[j],
+                             shapes_all[i].fragUniformBuffersMemory[j]);
+
+                vkMapMemory(device, shapes_all[i].fragUniformBuffersMemory[j], 0,
+                            fragBufferSize, 0,
+                            &shapes_all[i].fragUniformBuffersMapped[j]);
             }
         }
     }
@@ -1524,10 +1563,15 @@ class HelloTriangleApplication
 
             for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
             {
-                VkDescriptorBufferInfo bufferInfo{};
-                bufferInfo.buffer = shapes_all[i].uniformBuffers[j];
-                bufferInfo.offset = 0;
-                bufferInfo.range = sizeof(UniformBufferObject);
+                VkDescriptorBufferInfo vertBufferInfo{};
+                vertBufferInfo.buffer = shapes_all[i].vertUniformBuffers[j];
+                vertBufferInfo.offset = 0;
+                vertBufferInfo.range = sizeof(VertUniformBufferObject);
+
+                VkDescriptorBufferInfo fragBufferInfo{};
+                fragBufferInfo.buffer = shapes_all[i].fragUniformBuffers[j];
+                fragBufferInfo.offset = 0;
+                fragBufferInfo.range = sizeof(FragUniformBufferObject);
 
                 VkDescriptorImageInfo textureImageInfo{};
                 textureImageInfo.imageLayout =
@@ -1541,7 +1585,7 @@ class HelloTriangleApplication
                 normalImageInfo.imageView = normalImageView;
                 normalImageInfo.sampler = normalSampler;
 
-                std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+                std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
 
                 descriptorWrites[0].sType =
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1551,7 +1595,7 @@ class HelloTriangleApplication
                 descriptorWrites[0].descriptorType =
                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
                 descriptorWrites[0].descriptorCount = 1;
-                descriptorWrites[0].pBufferInfo = &bufferInfo;
+                descriptorWrites[0].pBufferInfo = &vertBufferInfo;
 
                 descriptorWrites[1].sType =
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1559,9 +1603,9 @@ class HelloTriangleApplication
                 descriptorWrites[1].dstBinding = 1;
                 descriptorWrites[1].dstArrayElement = 0;
                 descriptorWrites[1].descriptorType =
-                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
                 descriptorWrites[1].descriptorCount = 1;
-                descriptorWrites[1].pImageInfo = &textureImageInfo;
+                descriptorWrites[1].pBufferInfo = &fragBufferInfo;
 
                 descriptorWrites[2].sType =
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1571,7 +1615,17 @@ class HelloTriangleApplication
                 descriptorWrites[2].descriptorType =
                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
                 descriptorWrites[2].descriptorCount = 1;
-                descriptorWrites[2].pImageInfo = &normalImageInfo;
+                descriptorWrites[2].pImageInfo = &textureImageInfo;
+
+                descriptorWrites[3].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[3].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[3].dstBinding = 3;
+                descriptorWrites[3].dstArrayElement = 0;
+                descriptorWrites[3].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[3].descriptorCount = 1;
+                descriptorWrites[3].pImageInfo = &normalImageInfo;
 
                 vkUpdateDescriptorSets(
                     device, static_cast<uint32_t>(descriptorWrites.size()),
@@ -1805,19 +1859,25 @@ class HelloTriangleApplication
         for (size_t i = 0; i < shapes_all.size(); i++)
         {
 
-            UniformBufferObject ubo{};
+            VertUniformBufferObject vubo{};
 
-            ubo.model = gameState.getModelMatrix(i);
+            vubo.model = gameState.getModelMatrix(i);
 
-            ubo.view = gameState.getCamera().GetViewMatrix();
-            ubo.proj = glm::perspective(glm::radians(60.0f),
+            vubo.view = gameState.getCamera().GetViewMatrix();
+            vubo.proj = glm::perspective(glm::radians(60.0f),
                                         swapChainExtent.width /
                                             (float)swapChainExtent.height,
                                         0.1f, 50.0f);
-            ubo.proj[1][1] *= -1;
+            vubo.proj[1][1] *= -1;
 
-            memcpy(shapes_all[i].uniformBuffersMapped[currentImage], &ubo,
-                   sizeof(ubo));
+            memcpy(shapes_all[i].vertUniformBuffersMapped[currentImage], &vubo,
+                   sizeof(vubo));
+
+            FragUniformBufferObject fubo{};
+            fubo.color = glm::vec3(0.5f, 0.2f, 0.0f);
+
+            memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
+                   sizeof(fubo));
         }
     }
 

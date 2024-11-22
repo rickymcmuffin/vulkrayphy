@@ -86,11 +86,15 @@ struct Shape
     uint32_t indexCount;
     uint32_t firstIndex;
 
-    VkBuffer buffer;
     std::vector<VkDescriptorSet> descriptorSets;
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    std::vector<void *> uniformBuffersMapped;
+
+    std::vector<VkBuffer> vertUniformBuffers;
+    std::vector<VkDeviceMemory> vertUniformBuffersMemory;
+    std::vector<void *> vertUniformBuffersMapped;
+
+    std::vector<VkBuffer> fragUniformBuffers;
+    std::vector<VkDeviceMemory> fragUniformBuffersMemory;
+    std::vector<void *> fragUniformBuffersMapped;
 };
 
 struct LMRetValue
