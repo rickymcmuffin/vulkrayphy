@@ -103,6 +103,14 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct Texture{
+    uint32_t MipLevels;
+    VkImage Image;
+    VkDeviceMemory ImageMemory;
+    VkImageView ImageView;
+    VkSampler Sampler;
+};
+
 struct VertUniformBufferObject
 {
     alignas(16) glm::mat4 model;
@@ -113,6 +121,9 @@ struct VertUniformBufferObject
 struct FragUniformBufferObject
 {
     alignas(16) glm::vec3 color;
+    alignas(16) glm::vec3 camPos;
+    alignas(16) glm::vec3 lightPos;
+    alignas(16) glm::vec3 lightColor;
 };
 
 class HelloTriangleApplication

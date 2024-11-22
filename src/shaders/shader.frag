@@ -7,6 +7,9 @@ layout(location = 0) out vec4 outColor;
 
 layout(binding = 1) uniform FragUniformBufferObject {
     vec3 color;
+    vec3 camPos;
+    vec3 lightPos;
+    vec3 lightColor;
 } ubo;
 
 layout(binding = 2) uniform sampler2D texSampler;
