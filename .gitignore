@@ -32,7 +32,7 @@
 *.app
 
 src/textures
-src/shaders
+*.spv
 src/models
 build-windows/
 assets/
