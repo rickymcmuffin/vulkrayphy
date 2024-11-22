@@ -7,7 +7,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(binding = 1) uniform FragUniformBufferObject {
     vec3 color;
-} ubo2;
+} ubo;
 
 layout(binding = 2) uniform sampler2D texSampler;
 layout(binding = 3) uniform sampler2D normSampler;
@@ -29,7 +29,7 @@ void main() {
     color = vec3ToSrgb(color);
 
     // outColor = vec4(color, 1.0);
-    outColor = vec4(ubo2.color, 1.0);
+    outColor = vec4(ubo.color, 1.0);
 
 
 }

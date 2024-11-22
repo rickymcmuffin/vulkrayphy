@@ -1874,7 +1874,7 @@ class HelloTriangleApplication
                    sizeof(vubo));
 
             FragUniformBufferObject fubo{};
-            fubo.color = glm::vec3(0.5f, 0.2f, 0.0f);
+            fubo.color = glm::vec3(0.5f, 0.2f, 1.0f);
 
             memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
                    sizeof(fubo));
