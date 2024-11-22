@@ -24,8 +24,8 @@ struct Vertex
 {
     alignas(16) glm::vec3 pos;
     alignas(16) glm::vec3 color;
-    alignas(8) glm::vec2 texCoord;
     alignas(16) glm::vec3 normal;
+    alignas(8) glm::vec2 texCoord;
 
     static VkVertexInputBindingDescription getBindingDescription()
     {
@@ -37,10 +37,10 @@ struct Vertex
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 3>
+    static std::array<VkVertexInputAttributeDescription, 4>
     getAttributeDescriptions()
     {
-        std::array<VkVertexInputAttributeDescription, 3>
+        std::array<VkVertexInputAttributeDescription, 4>
             attributeDescriptions{};
 
         attributeDescriptions[0].binding = 0;
@@ -55,8 +55,13 @@ struct Vertex
 
         attributeDescriptions[2].binding = 0;
         attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+        attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(Vertex, normal);
+
+        attributeDescriptions[3].binding = 0;
+        attributeDescriptions[3].location = 3;
+        attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[3].offset = offsetof(Vertex, texCoord);
 
         return attributeDescriptions;
     }
@@ -107,10 +112,6 @@ struct LMRetValue
 
 const std::string _LM_MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
 
-
-inline void addNormals(std::vector<Vertex> &vertices){
-}
-
 // this edits the vertices parameter to center the shape
 inline void centerPolygon(Shape shape, std::vector<uint32_t> indices,
                           std::vector<Vertex> &vertices)
@@ -135,7 +136,10 @@ inline void centerPolygon(Shape shape, std::vector<uint32_t> indices,
 
     std::cout << "Centroid is: " << glm::to_string(centroid) << std::endl;
 
-    std::cout << "Radius is: " << glm::distance(vertices[indices[shape.firstIndex]].pos, centroid)<<std::endl;
+    std::cout << "Radius is: "
+              << glm::distance(vertices[indices[shape.firstIndex]].pos,
+                               centroid)
+              << std::endl;
 
     uniqueVertices.clear();
 
@@ -143,18 +147,18 @@ inline void centerPolygon(Shape shape, std::vector<uint32_t> indices,
     {
         Vertex *vertex = &vertices[indices[i]];
 
-        if (uniqueVertices.count(indices[i]) > 0){
+        if (uniqueVertices.count(indices[i]) > 0)
+        {
             continue;
         }
-        if(indices [i] == 3380){
+        if (indices[i] == 3380)
+        {
         }
 
         uniqueVertices[indices[i]] = static_cast<uint32_t>(vertices.size());
 
-
         vertex->pos -= centroid;
     }
-
 }
 
 inline LMRetValue lmLoadModel()
@@ -197,6 +201,15 @@ inline LMRetValue lmLoadModel()
                 attrib.texcoords[2 * index.texcoord_index + 0],
                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
 
+            // Check if `normal_index` is zero or positive. negative = no normal
+            // data
+            if (index.normal_index >= 0)
+            {
+                vertex.normal = {attrib.normals[3 * index.normal_index + 0],
+                              attrib.normals[3 * index.normal_index + 1],
+                              attrib.vertices[3 * index.normal_index + 2]};
+            }
+
             vertex.color = {1.0f, 1.0f, 1.0f};
 
             if (uniqueVertices.count(vertex) == 0)
@@ -231,7 +244,7 @@ inline LMRetValue lmLoadModel()
     // for (size_t i = 10; i < shapes_all.size(); i++){
     //     centerPolygon(shapes_all[i], indices, vertices);
     // }
-    std::cout << "Num Vertices: " << indices.size() << std::endl;
+    std::cout << "Num Vertices: " << vertices.size() << std::endl;
     LMRetValue ret{};
     ret.vertices = vertices;
     ret.indices = indices;
