@@ -1,5 +1,5 @@
 # vulkrayphy
-A project for learning vulkan, lighting, and physics all in one. I'm creating a simulation game with my home built Vulkan engine and PBR lighting.
+A project for learning vulkan, lighting, and physics all in one. I'm creating a pool simulation game with my home built Vulkan engine and PBR lighting.
 
 
 
