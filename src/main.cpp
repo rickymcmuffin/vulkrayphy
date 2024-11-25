@@ -1,4 +1,5 @@
 #include <glm/ext/vector_float3.hpp>
+#include <sys/types.h>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -124,7 +125,6 @@ struct VertUniformBufferObject
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
     alignas(16) glm::mat3 normalMatrix;
-
 };
 
 struct FragUniformBufferObject
@@ -232,7 +232,13 @@ class HelloTriangleApplication
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+        uint32_t window_width = mode->width;
+        uint32_t window_height = mode->height;
+
+        window = glfwCreateWindow(window_width, window_height, "Vulkan",
+                                  glfwGetPrimaryMonitor(), nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
@@ -1953,11 +1959,11 @@ class HelloTriangleApplication
                                          0.1f, 50.0f);
             vubo.proj[1][1] *= -1;
 
-            vubo.normalMatrix = glm::mat3(glm::transpose(glm::inverse((vubo.model))));
+            vubo.normalMatrix =
+                glm::mat3(glm::transpose(glm::inverse((vubo.model))));
 
             memcpy(shapes_all[i].vertUniformBuffersMapped[currentImage], &vubo,
                    sizeof(vubo));
-
 
             FragUniformBufferObject fubo{};
             fubo.color = glm::vec3(0.5f, 0.2f, 1.0f);
@@ -1965,7 +1971,6 @@ class HelloTriangleApplication
             // fubo.lightPos = glm::vec3(0.0f, 3.0f, 0.0f);
             fubo.lightPos = gameState.getObjectPos(10);
             fubo.lightColor = glm::vec3(10.0f);
-
 
             memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
                    sizeof(fubo));
