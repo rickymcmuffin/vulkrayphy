@@ -1,3 +1,0 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\GameTime.dir/objects.a
-C:\mingw64\bin\ar.exe qc CMakeFiles\GameTime.dir/objects.a @CMakeFiles\GameTime.dir\objects1.rsp
-C:\mingw64\bin\g++.exe -Wl,--whole-archive CMakeFiles\GameTime.dir/objects.a -Wl,--no-whole-archive -o GameTime.exe -Wl,--out-implib,libGameTime.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\GameTime.dir\linkLibs.rsp

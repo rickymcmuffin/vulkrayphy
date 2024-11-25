@@ -32,3 +32,8 @@
 *.app
 
 src/textures
+*.spv
+src/models
+build_windows/
+build_linux/
+assets/

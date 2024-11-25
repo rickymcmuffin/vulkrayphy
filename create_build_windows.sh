@@ -1,6 +1,6 @@
-mkdir -p build-windows
+mkdir -p build_windows
 
-cd build-windows
+cd build_windows
 
 cmake -G "Unix Makefiles" \
       -DCMAKE_SYSTEM_NAME=Windows \

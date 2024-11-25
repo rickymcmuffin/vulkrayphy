@@ -1,46 +1,38 @@
-#version 450
+#version 450 core
+out vec4 FragColor;
+in vec2 TexCoords;
+in vec3 WorldPos;
+in vec3 Normal;
 
-layout(location = 0) in vec3 fragColor;
-layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in vec3 worldPos;
-layout(location = 3) in vec3 normal;
+// material parameters
+uniform sampler2D albedoMap;
+uniform sampler2D normalMap;
+uniform sampler2D metallicMap;
+uniform sampler2D roughnessMap;
+uniform sampler2D aoMap;
 
-layout(location = 0) out vec4 outColor;
+// lights
+uniform vec3 lightPositions[4];
+uniform vec3 lightColors[4];
 
-layout(binding = 1) uniform FragUniformBufferObject {
-    vec3 color;
-    vec3 camPos;
-    vec3 lightPos;
-    vec3 lightColor;
-} ubo;
-
-layout(binding = 2) uniform sampler2D albedoSampler;
-layout(binding = 3) uniform sampler2D normalSampler;
-layout(binding = 4) uniform sampler2D metallicSampler;
-layout(binding = 5) uniform sampler2D roughnessSampler;
+uniform vec3 camPos;
 
 const float PI = 3.14159265359;
-
-float floatToSrgb(float value) {
-    const float inv_12_92 = 0.0773993808;
-    return value <= 0.04045
-       ? value * inv_12_92 
-       : pow((value + 0.055) / 1.055, 2.4);
-}
-vec3 vec3ToSrgb(vec3 value) {
-    return vec3(floatToSrgb(value.x), floatToSrgb(value.y), floatToSrgb(value.z));
-}
-
+// ----------------------------------------------------------------------------
+// Easy trick to get tangent-normals to world-space to keep PBR code simplified.
+// Don't worry if you don't get what's going on; you generally want to do normal 
+// mapping the usual way for performance anyways; I do plan make a note of this 
+// technique somewhere later in the normal mapping tutorial.
 vec3 getNormalFromMap()
 {
-    vec3 tangentNormal = texture(normalSampler, fragTexCoord).xyz * 2.0 - 1.0;
+    vec3 tangentNormal = texture(normalMap, TexCoords).xyz * 2.0 - 1.0;
 
-    vec3 Q1  = dFdx(worldPos);
-    vec3 Q2  = dFdy(worldPos);
-    vec2 st1 = dFdx(fragTexCoord);
-    vec2 st2 = dFdy(fragTexCoord);
+    vec3 Q1  = dFdx(WorldPos);
+    vec3 Q2  = dFdy(WorldPos);
+    vec2 st1 = dFdx(TexCoords);
+    vec2 st2 = dFdy(TexCoords);
 
-    vec3 N   = normalize(normal);
+    vec3 N   = normalize(Normal);
     vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
     vec3 B  = -normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
@@ -87,15 +79,16 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
-
-
-void main() {
-    vec3 albedo     = texture(albedoSampler, fragTexCoord).rgb;
-    float metallic  = texture(metallicSampler, fragTexCoord).r;
-    float roughness = texture(roughnessSampler, fragTexCoord).r;
+// ----------------------------------------------------------------------------
+void main()
+{		
+    vec3 albedo     = pow(texture(albedoMap, TexCoords).rgb, vec3(2.2));
+    float metallic  = texture(metallicMap, TexCoords).r;
+    float roughness = texture(roughnessMap, TexCoords).r;
+    float ao        = texture(aoMap, TexCoords).r;
 
     vec3 N = getNormalFromMap();
-    vec3 V = normalize(ubo.camPos - worldPos);
+    vec3 V = normalize(camPos - WorldPos);
 
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
@@ -104,12 +97,14 @@ void main() {
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
+    for(int i = 0; i < 4; ++i) 
+    {
         // calculate per-light radiance
-        vec3 L = normalize(ubo.lightPos - worldPos);
+        vec3 L = normalize(lightPositions[i] - WorldPos);
         vec3 H = normalize(V + L);
-        float distance = length(ubo.lightPos - worldPos);
+        float distance = length(lightPositions[i] - WorldPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = ubo.lightColor * attenuation;
+        vec3 radiance = lightColors[i] * attenuation;
 
         // Cook-Torrance BRDF
         float NDF = DistributionGGX(N, H, roughness);   
@@ -136,16 +131,20 @@ void main() {
 
         // add to outgoing radiance Lo
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+    }   
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.1) * albedo;
+    vec3 ambient = vec3(0.03) * albedo * ao;
     
     vec3 color = ambient + Lo;
 
-    color = vec3ToSrgb(color);
+    // HDR tonemapping
+    color = color / (color + vec3(1.0));
+    // gamma correct
+    color = pow(color, vec3(1.0/2.2)); 
 
-    outColor = vec4(color, 1.0);
-    // outColor = vec4((normalize(normal).z+1)/2);
-
+    FragColor = vec4(color, 1.0);
 }
+
+

@@ -1,3 +1,6 @@
+#include <glm/ext/vector_float3.hpp>
+#include <sys/types.h>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -9,10 +12,10 @@
 #include <glm/gtx/hash.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "../include/stb_image.h"
 
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
+// #include "../include/tiny_obj_loader.h"
 
 #include <algorithm>
 #include <array>
@@ -29,14 +32,21 @@
 #include <unordered_map>
 #include <vector>
 
-
+#include "../include/controls.hpp"
+#include "../include/load_model.hpp"
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
-const std::string MODEL_PATH = "src/models/pool_table/POOL_TABLE.obj";
-const std::string TEXTURE_PATH =
-    "src/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
+const std::string MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
+const std::string ALBEDO_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
+const std::string NORMAL_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_Normal.png";
+const std::string METALLIC_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_Metallic.png";
+const std::string ROUGHNESS_PATH =
+    "assets/models/pool_table/pool_table low_POOL TABLE_Roughness.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -99,72 +109,30 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct Vertex
+struct TextureMap
 {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-
-    static VkVertexInputBindingDescription getBindingDescription()
-    {
-        VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 3>
-    getAttributeDescriptions()
-    {
-        std::array<VkVertexInputAttributeDescription, 3>
-            attributeDescriptions{};
-
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
-
-    bool operator==(const Vertex &other) const
-    {
-        return pos == other.pos && color == other.color &&
-               texCoord == other.texCoord;
-    }
+    std::string filePath;
+    uint32_t mipLevels;
+    VkImage image;
+    VkDeviceMemory imageMemory;
+    VkImageView imageView;
+    VkSampler sampler;
 };
 
-namespace std
-{
-template <> struct hash<Vertex>
-{
-    size_t operator()(Vertex const &vertex) const
-    {
-        return ((hash<glm::vec3>()(vertex.pos) ^
-                 (hash<glm::vec3>()(vertex.color) << 1)) >>
-                1) ^
-               (hash<glm::vec2>()(vertex.texCoord) << 1);
-    }
-};
-} // namespace std
-
-struct UniformBufferObject
+struct VertUniformBufferObject
 {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
+    alignas(16) glm::mat3 normalMatrix;
+};
+
+struct FragUniformBufferObject
+{
+    alignas(16) glm::vec3 color;
+    alignas(16) glm::vec3 camPos;
+    alignas(16) glm::vec3 lightPos;
+    alignas(16) glm::vec3 lightColor;
 };
 
 class HelloTriangleApplication
@@ -214,11 +182,22 @@ class HelloTriangleApplication
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
 
-    uint32_t mipLevels;
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
+    // uint32_t textureMipLevels;
+    // VkImage textureImage;
+    // VkDeviceMemory textureImageMemory;
+    // VkImageView textureImageView;
+    // VkSampler textureSampler;
+    //
+    // uint32_t normalMipLevels;
+    // VkImage normalImage;
+    // VkDeviceMemory normalImageMemory;
+    // VkImageView normalImageView;
+    // VkSampler normalSampler;
+
+    TextureMap albedoMap;
+    TextureMap normalMap;
+    TextureMap metallicMap;
+    TextureMap roughnessMap;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -226,6 +205,8 @@ class HelloTriangleApplication
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+
+    std::vector<Shape> shapes_all;
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -243,13 +224,21 @@ class HelloTriangleApplication
 
     bool framebufferResized = false;
 
+    GameState gameState;
+
     void initWindow()
     {
         glfwInit();
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+        uint32_t window_width = mode->width;
+        uint32_t window_height = mode->height;
+
+        window = glfwCreateWindow(window_width, window_height, "Vulkan",
+                                  glfwGetPrimaryMonitor(), nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
@@ -278,9 +267,7 @@ class HelloTriangleApplication
         createColorResources();
         createDepthResources();
         createFramebuffers();
-        createTextureImage();
-        createTextureImageView();
-        createTextureSampler();
+        createTextures();
         loadModel();
         createVertexBuffer();
         createIndexBuffer();
@@ -293,10 +280,26 @@ class HelloTriangleApplication
 
     void mainLoop()
     {
+        float delta_time;
+        float last_tick = glfwGetTime();
+
+        uint32_t shape_index = 0;
+        float update_shape = glfwGetTime();
+
         while (!glfwWindowShouldClose(window))
         {
+            delta_time = glfwGetTime() - last_tick;
+            last_tick = glfwGetTime();
+
+            if (glfwGetTime() - update_shape >= 0.5f)
+            {
+                update_shape = glfwGetTime();
+                shape_index = (shape_index + 1) % 16;
+            }
+
             glfwPollEvents();
-            drawFrame();
+            gameState.updateGame(window, delta_time);
+            drawFrame(delta_time, shape_index);
         }
 
         vkDeviceWaitIdle(device);
@@ -325,6 +328,14 @@ class HelloTriangleApplication
         vkDestroySwapchainKHR(device, swapChain, nullptr);
     }
 
+    void cleanupTextureMap(TextureMap map)
+    {
+        vkDestroySampler(device, map.sampler, nullptr);
+        vkDestroyImageView(device, map.imageView, nullptr);
+        vkDestroyImage(device, map.image, nullptr);
+        vkFreeMemory(device, map.imageMemory, nullptr);
+    }
+
     void cleanup()
     {
         cleanupSwapChain();
@@ -333,19 +344,28 @@ class HelloTriangleApplication
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
         vkDestroyRenderPass(device, renderPass, nullptr);
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                vkDestroyBuffer(device, shapes_all[i].vertUniformBuffers[j],
+                                nullptr);
+                vkFreeMemory(device, shapes_all[i].vertUniformBuffersMemory[j],
+                             nullptr);
+
+                vkDestroyBuffer(device, shapes_all[i].fragUniformBuffers[j],
+                                nullptr);
+                vkFreeMemory(device, shapes_all[i].fragUniformBuffersMemory[j],
+                             nullptr);
+            }
         }
 
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
-        vkDestroySampler(device, textureSampler, nullptr);
-        vkDestroyImageView(device, textureImageView, nullptr);
-
-        vkDestroyImage(device, textureImage, nullptr);
-        vkFreeMemory(device, textureImageMemory, nullptr);
+        cleanupTextureMap(albedoMap);
+        cleanupTextureMap(normalMap);
+        cleanupTextureMap(metallicMap);
+        cleanupTextureMap(roughnessMap);
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
@@ -744,23 +764,56 @@ class HelloTriangleApplication
 
     void createDescriptorSetLayout()
     {
-        VkDescriptorSetLayoutBinding uboLayoutBinding{};
-        uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.pImmutableSamplers = nullptr;
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        VkDescriptorSetLayoutBinding vertUboLayoutBinding{};
+        vertUboLayoutBinding.binding = 0;
+        vertUboLayoutBinding.descriptorCount = 1;
+        vertUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        vertUboLayoutBinding.pImmutableSamplers = nullptr;
+        vertUboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-        samplerLayoutBinding.binding = 1;
-        samplerLayoutBinding.descriptorCount = 1;
-        samplerLayoutBinding.descriptorType =
+        VkDescriptorSetLayoutBinding fragUboLayoutBinding{};
+        fragUboLayoutBinding.binding = 1;
+        fragUboLayoutBinding.descriptorCount = 1;
+        fragUboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        fragUboLayoutBinding.pImmutableSamplers = nullptr;
+        fragUboLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutBinding albedoSamplerLayoutBinding{};
+        albedoSamplerLayoutBinding.binding = 2;
+        albedoSamplerLayoutBinding.descriptorCount = 1;
+        albedoSamplerLayoutBinding.descriptorType =
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        samplerLayoutBinding.pImmutableSamplers = nullptr;
-        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        albedoSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        albedoSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-        std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
-            uboLayoutBinding, samplerLayoutBinding};
+        VkDescriptorSetLayoutBinding normalSamplerLayoutBinding{};
+        normalSamplerLayoutBinding.binding = 3;
+        normalSamplerLayoutBinding.descriptorCount = 1;
+        normalSamplerLayoutBinding.descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        normalSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        normalSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutBinding metallicSamplerLayoutBinding{};
+        metallicSamplerLayoutBinding.binding = 4;
+        metallicSamplerLayoutBinding.descriptorCount = 1;
+        metallicSamplerLayoutBinding.descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        metallicSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        metallicSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutBinding roughnessSamplerLayoutBinding{};
+        roughnessSamplerLayoutBinding.binding = 5;
+        roughnessSamplerLayoutBinding.descriptorCount = 1;
+        roughnessSamplerLayoutBinding.descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        roughnessSamplerLayoutBinding.pImmutableSamplers = nullptr;
+        roughnessSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        std::array<VkDescriptorSetLayoutBinding, 6> bindings = {
+            vertUboLayoutBinding,         fragUboLayoutBinding,
+            albedoSamplerLayoutBinding,   normalSamplerLayoutBinding,
+            metallicSamplerLayoutBinding, roughnessSamplerLayoutBinding};
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1026,19 +1079,41 @@ class HelloTriangleApplication
                format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
-    void createTextureImage()
+    void createTextures()
     {
-        int texWidth, texHeight, texChannels;
-        stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight,
-                                    &texChannels, STBI_rgb_alpha);
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
-        mipLevels = static_cast<uint32_t>(
-                        std::floor(std::log2(std::max(texWidth, texHeight)))) +
-                    1;
+        albedoMap.filePath = ALBEDO_PATH;
+        normalMap.filePath = NORMAL_PATH;
+        metallicMap.filePath = METALLIC_PATH;
+        roughnessMap.filePath = ROUGHNESS_PATH;
+        createMap(&albedoMap);
+        createMap(&normalMap);
+        createMap(&metallicMap);
+        createMap(&roughnessMap);
+    }
+
+    void createMap(TextureMap *map)
+    {
+        createMapImage(&map->image, &map->imageMemory, &map->mipLevels,
+                       map->filePath);
+
+        map->imageView = createMapImageView(map->image, map->mipLevels);
+        createMapSampler(&map->sampler, map->mipLevels);
+    }
+
+    void createMapImage(VkImage *mapImage, VkDeviceMemory *mapImageMemory,
+                        uint32_t *mapMipLevels, std::string mapPath)
+    {
+        int mapWidth, mapHeight, mapChannels;
+        stbi_uc *pixels = stbi_load(mapPath.c_str(), &mapWidth, &mapHeight,
+                                    &mapChannels, STBI_rgb_alpha);
+        VkDeviceSize imageSize = mapWidth * mapHeight * 4;
+        *mapMipLevels = static_cast<uint32_t>(std::floor(
+                            std::log2(std::max(mapWidth, mapHeight)))) +
+                        1;
 
         if (!pixels)
         {
-            throw std::runtime_error("failed to load texture image!");
+            throw std::runtime_error("failed to load map image!");
         }
 
         VkBuffer stagingBuffer;
@@ -1055,28 +1130,27 @@ class HelloTriangleApplication
 
         stbi_image_free(pixels);
 
-        createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT,
-                    VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                        VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                        VK_IMAGE_USAGE_SAMPLED_BIT,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage,
-                    textureImageMemory);
+        createImage(
+            mapWidth, mapHeight, *mapMipLevels, VK_SAMPLE_COUNT_1_BIT,
+            VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                VK_IMAGE_USAGE_SAMPLED_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *mapImage, *mapImageMemory);
 
-        transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-                              VK_IMAGE_LAYOUT_UNDEFINED,
-                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
-        copyBufferToImage(stagingBuffer, textureImage,
-                          static_cast<uint32_t>(texWidth),
-                          static_cast<uint32_t>(texHeight));
+        transitionImageLayout(
+            *mapImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *mapMipLevels);
+        copyBufferToImage(stagingBuffer, *mapImage,
+                          static_cast<uint32_t>(mapWidth),
+                          static_cast<uint32_t>(mapHeight));
         // transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while
         // generating mipmaps
 
         vkDestroyBuffer(device, stagingBuffer, nullptr);
         vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-        generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth,
-                        texHeight, mipLevels);
+        generateMipmaps(*mapImage, VK_FORMAT_R8G8B8A8_UNORM, mapWidth,
+                        mapHeight, *mapMipLevels);
     }
 
     void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth,
@@ -1206,14 +1280,16 @@ class HelloTriangleApplication
         return VK_SAMPLE_COUNT_1_BIT;
     }
 
-    void createTextureImageView()
+    VkImageView createMapImageView(VkImage mapImage, uint32_t mapMipLevels)
     {
-        textureImageView =
-            createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-                            VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+        VkImageView mapImageView =
+            createImageView(mapImage, VK_FORMAT_R8G8B8A8_UNORM,
+                            VK_IMAGE_ASPECT_COLOR_BIT, mapMipLevels);
+
+        return mapImageView;
     }
 
-    void createTextureSampler()
+    void createMapSampler(VkSampler *sampler, uint32_t mipLevels)
     {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -1236,7 +1312,7 @@ class HelloTriangleApplication
         samplerInfo.maxLod = static_cast<float>(mipLevels);
         samplerInfo.mipLodBias = 0.0f;
 
-        if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) !=
+        if (vkCreateSampler(device, &samplerInfo, nullptr, sampler) !=
             VK_SUCCESS)
         {
             throw std::runtime_error("failed to create texture sampler!");
@@ -1388,52 +1464,10 @@ class HelloTriangleApplication
 
     void loadModel()
     {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
-
-        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
-                              MODEL_PATH.c_str()))
-        {
-            throw std::runtime_error(warn + err);
-        }
-
-        std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-
-        int i = 0;
-        for (const auto &shape : shapes)
-        {
-            // if (i != 3)
-            //     continue;
-            std::cout << "Number of indices in shape" << i <<": "
-                      << shape.mesh.indices.size() << std::endl;
-            i++;
-            for (const auto &index : shape.mesh.indices)
-            {
-                // std::cout << index.vertex_index;
-                Vertex vertex{};
-
-                vertex.pos = {attrib.vertices[3 * index.vertex_index + 0],
-                              attrib.vertices[3 * index.vertex_index + 1],
-                              attrib.vertices[3 * index.vertex_index + 2]};
-
-                vertex.texCoord = {
-                    attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
-
-                vertex.color = {1.0f, 1.0f, 1.0f};
-
-                if (uniqueVertices.count(vertex) == 0)
-                {
-                    uniqueVertices[vertex] =
-                        static_cast<uint32_t>(vertices.size());
-                    vertices.push_back(vertex);
-                }
-
-                indices.push_back(uniqueVertices[vertex]);
-            }
-        }
+        auto lm = lmLoadModel();
+        vertices = lm.vertices;
+        indices = lm.indices;
+        shapes_all = lm.shapes;
     }
 
     void createVertexBuffer()
@@ -1494,21 +1528,48 @@ class HelloTriangleApplication
 
     void createUniformBuffers()
     {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+        VkDeviceSize vertBufferSize = sizeof(VertUniformBufferObject);
 
-        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                         uniformBuffers[i], uniformBuffersMemory[i]);
+            shapes_all[i].vertUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].vertUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].vertUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
-            vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0,
-                        &uniformBuffersMapped[i]);
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                createBuffer(vertBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             shapes_all[i].vertUniformBuffers[j],
+                             shapes_all[i].vertUniformBuffersMemory[j]);
+
+                vkMapMemory(device, shapes_all[i].vertUniformBuffersMemory[j],
+                            0, vertBufferSize, 0,
+                            &shapes_all[i].vertUniformBuffersMapped[j]);
+            }
+        }
+
+        VkDeviceSize fragBufferSize = sizeof(FragUniformBufferObject);
+
+        for (size_t i = 0; i < shapes_all.size(); i++)
+        {
+            shapes_all[i].fragUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].fragUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+            shapes_all[i].fragUniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                createBuffer(fragBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             shapes_all[i].fragUniformBuffers[j],
+                             shapes_all[i].fragUniformBuffersMemory[j]);
+
+                vkMapMemory(device, shapes_all[i].fragUniformBuffersMemory[j],
+                            0, fragBufferSize, 0,
+                            &shapes_all[i].fragUniformBuffersMapped[j]);
+            }
         }
     }
 
@@ -1517,16 +1578,17 @@ class HelloTriangleApplication
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[0].descriptorCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[1].descriptorCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
         poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+        poolInfo.maxSets =
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
 
         if (vkCreateDescriptorPool(device, &poolInfo, nullptr,
                                    &descriptorPool) != VK_SUCCESS)
@@ -1537,57 +1599,127 @@ class HelloTriangleApplication
 
     void createDescriptorSets()
     {
-        std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
-                                                   descriptorSetLayout);
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = descriptorPool;
-        allocInfo.descriptorSetCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        allocInfo.pSetLayouts = layouts.data();
-
-        descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-        if (vkAllocateDescriptorSets(device, &allocInfo,
-                                     descriptorSets.data()) != VK_SUCCESS)
+        for (size_t i = 0; i < shapes_all.size(); i++)
         {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
+            std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                                       descriptorSetLayout);
+            VkDescriptorSetAllocateInfo allocInfo{};
+            allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+            allocInfo.descriptorPool = descriptorPool;
+            allocInfo.descriptorSetCount =
+                static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            allocInfo.pSetLayouts = layouts.data();
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-        {
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[i];
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
+            shapes_all[i].descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+            if (vkAllocateDescriptorSets(device, &allocInfo,
+                                         shapes_all[i].descriptorSets.data()) !=
+                VK_SUCCESS)
+            {
+                throw std::runtime_error("failed to allocate descriptor sets!");
+            }
 
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = textureImageView;
-            imageInfo.sampler = textureSampler;
+            for (size_t j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+            {
+                VkDescriptorBufferInfo vertBufferInfo{};
+                vertBufferInfo.buffer = shapes_all[i].vertUniformBuffers[j];
+                vertBufferInfo.offset = 0;
+                vertBufferInfo.range = sizeof(VertUniformBufferObject);
 
-            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+                VkDescriptorBufferInfo fragBufferInfo{};
+                fragBufferInfo.buffer = shapes_all[i].fragUniformBuffers[j];
+                fragBufferInfo.offset = 0;
+                fragBufferInfo.range = sizeof(FragUniformBufferObject);
 
-            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[0].dstSet = descriptorSets[i];
-            descriptorWrites[0].dstBinding = 0;
-            descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType =
-                VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
+                VkDescriptorImageInfo albedoImageInfo{};
+                albedoImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                albedoImageInfo.imageView = albedoMap.imageView;
+                albedoImageInfo.sampler = albedoMap.sampler;
 
-            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[1].dstSet = descriptorSets[i];
-            descriptorWrites[1].dstBinding = 1;
-            descriptorWrites[1].dstArrayElement = 0;
-            descriptorWrites[1].descriptorType =
-                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &imageInfo;
+                VkDescriptorImageInfo normalImageInfo{};
+                normalImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                normalImageInfo.imageView = normalMap.imageView;
+                normalImageInfo.sampler = normalMap.sampler;
 
-            vkUpdateDescriptorSets(
-                device, static_cast<uint32_t>(descriptorWrites.size()),
-                descriptorWrites.data(), 0, nullptr);
+                VkDescriptorImageInfo metallicImageInfo{};
+                metallicImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                metallicImageInfo.imageView = metallicMap.imageView;
+                metallicImageInfo.sampler = metallicMap.sampler;
+
+                VkDescriptorImageInfo roughnessImageInfo{};
+                roughnessImageInfo.imageLayout =
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                roughnessImageInfo.imageView = roughnessMap.imageView;
+                roughnessImageInfo.sampler = roughnessMap.sampler;
+
+                std::array<VkWriteDescriptorSet, 6> descriptorWrites{};
+
+                descriptorWrites[0].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[0].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[0].dstBinding = 0;
+                descriptorWrites[0].dstArrayElement = 0;
+                descriptorWrites[0].descriptorType =
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                descriptorWrites[0].descriptorCount = 1;
+                descriptorWrites[0].pBufferInfo = &vertBufferInfo;
+
+                descriptorWrites[1].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[1].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[1].dstBinding = 1;
+                descriptorWrites[1].dstArrayElement = 0;
+                descriptorWrites[1].descriptorType =
+                    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                descriptorWrites[1].descriptorCount = 1;
+                descriptorWrites[1].pBufferInfo = &fragBufferInfo;
+
+                descriptorWrites[2].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[2].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[2].dstBinding = 2;
+                descriptorWrites[2].dstArrayElement = 0;
+                descriptorWrites[2].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[2].descriptorCount = 1;
+                descriptorWrites[2].pImageInfo = &albedoImageInfo;
+
+                descriptorWrites[3].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[3].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[3].dstBinding = 3;
+                descriptorWrites[3].dstArrayElement = 0;
+                descriptorWrites[3].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[3].descriptorCount = 1;
+                descriptorWrites[3].pImageInfo = &normalImageInfo;
+
+                descriptorWrites[4].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[4].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[4].dstBinding = 4;
+                descriptorWrites[4].dstArrayElement = 0;
+                descriptorWrites[4].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[4].descriptorCount = 1;
+                descriptorWrites[4].pImageInfo = &metallicImageInfo;
+
+                descriptorWrites[5].sType =
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[5].dstSet = shapes_all[i].descriptorSets[j];
+                descriptorWrites[5].dstBinding = 5;
+                descriptorWrites[5].dstArrayElement = 0;
+                descriptorWrites[5].descriptorType =
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[5].descriptorCount = 1;
+                descriptorWrites[5].pImageInfo = &roughnessImageInfo;
+
+                vkUpdateDescriptorSets(
+                    device, static_cast<uint32_t>(descriptorWrites.size()),
+                    descriptorWrites.data(), 0, nullptr);
+            }
         }
     }
 
@@ -1706,7 +1838,8 @@ class HelloTriangleApplication
         }
     }
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                             uint32_t shape_index)
     {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1725,7 +1858,7 @@ class HelloTriangleApplication
         renderPassInfo.renderArea.extent = swapChainExtent;
 
         std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        clearValues[0].color = {{0.00f, 0.00f, 0.00f, 1.0f}};
         clearValues[1].depthStencil = {1.0f, 0};
 
         renderPassInfo.clearValueCount =
@@ -1759,12 +1892,15 @@ class HelloTriangleApplication
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0,
                              VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipelineLayout, 0, 1,
-                                &descriptorSets[currentFrame], 0, nullptr);
+        for (size_t i = 0; i < shapes_all.size(); i++)
+        {
+            vkCmdBindDescriptorSets(
+                commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+                0, 1, &shapes_all[i].descriptorSets[currentFrame], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()),
-                         1, 0, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, shapes_all[i].indexCount, 1,
+                             shapes_all[i].firstIndex, 0, 0);
+        }
 
         vkCmdEndRenderPass(commandBuffer);
 
@@ -1802,30 +1938,46 @@ class HelloTriangleApplication
         }
     }
 
-    void updateUniformBuffer(uint32_t currentImage)
+    void updateUniformBuffer(uint32_t currentImage, float delta_time)
     {
-        static auto startTime = std::chrono::high_resolution_clock::now();
+        static auto startTime = glfwGetTime();
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(
-                         currentTime - startTime)
-                         .count();
+        auto currentTime = glfwGetTime();
+        float time = currentTime - startTime;
 
-        UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-                                glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-                               glm::vec3(0.0f, 0.0f, 0.0f),
-                               glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(
-            glm::radians(45.0f),
-            swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
+        for (size_t i = 0; i < shapes_all.size(); i++)
+        {
 
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+            VertUniformBufferObject vubo{};
+
+            vubo.model = gameState.getModelMatrix(i);
+
+            vubo.view = gameState.getCamera().GetViewMatrix();
+            vubo.proj = glm::perspective(glm::radians(60.0f),
+                                         swapChainExtent.width /
+                                             (float)swapChainExtent.height,
+                                         0.1f, 50.0f);
+            vubo.proj[1][1] *= -1;
+
+            vubo.normalMatrix =
+                glm::mat3(glm::transpose(glm::inverse((vubo.model))));
+
+            memcpy(shapes_all[i].vertUniformBuffersMapped[currentImage], &vubo,
+                   sizeof(vubo));
+
+            FragUniformBufferObject fubo{};
+            fubo.color = glm::vec3(0.5f, 0.2f, 1.0f);
+            fubo.camPos = gameState.getCamera().Position;
+            // fubo.lightPos = glm::vec3(0.0f, 3.0f, 0.0f);
+            fubo.lightPos = gameState.getObjectPos(10);
+            fubo.lightColor = glm::vec3(10.0f);
+
+            memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
+                   sizeof(fubo));
+        }
     }
 
-    void drawFrame()
+    void drawFrame(float delta_time, uint32_t shape_index)
     {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE,
                         UINT64_MAX);
@@ -1846,13 +1998,14 @@ class HelloTriangleApplication
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
-        updateUniformBuffer(currentFrame);
+        updateUniformBuffer(currentFrame, delta_time);
 
         vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
         vkResetCommandBuffer(commandBuffers[currentFrame],
                              /*VkCommandBufferResetFlagBits*/ 0);
-        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex,
+                            shape_index);
 
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
