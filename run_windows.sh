@@ -3,4 +3,4 @@ cd src/shaders/
 cd ../..
 
 cmake.exe --build build_windows/
-./build-windows/GameTime.exe
+./build_windows/Debug/GameTime.exe

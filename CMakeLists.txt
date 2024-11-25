@@ -1,6 +1,6 @@
 
 # the name of the target operating system
-# set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_NAME Windows)
 #
 # # which compilers to use for C and C++
 # set(CMAKE_C_COMPILER   clang)
@@ -28,7 +28,7 @@ target_include_directories(GameTime PRIVATE include)
 
 if(MSVC)
     message("BUILDING: MSVC")
-    target_compile_options(GameTime PRIVATE /W4 /WX)
+    target_compile_options(GameTime PRIVATE )
 elseif(WIN32)
     message("BUILDING: win32")
     target_compile_options(GameTime PRIVATE -Wall -Wextra -Wpedantic)

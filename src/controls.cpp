@@ -116,11 +116,11 @@ void GameState::updateBalls(float deltaTime)
     //
     // newBall.rotation += delta_pos / BALL_CIRCUMFRANCE /1.0f;
 
-    newBall.pos = glm::vec3(1.5f, 0.0f, 0.0f);
+    newBall.pos = glm::vec3(1.0f, 0.0f, 0.0f);
     newBall.pos =
         glm::rotate(glm::mat4(1.0f), 0.5f * (float) glfwGetTime() * glm::radians(90.0f),
                     glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(newBall.pos, 1.0f);
-    newBall.pos.y += 1.0f;
+    newBall.pos.y += 1.5f;
 
     whiteBall = newBall;
 }
