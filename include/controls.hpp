@@ -33,6 +33,8 @@ class GameState
 
     Ball whiteBall;
 
+    std::vector<Ball> balls_all;
+
     void printLogs();
     void updateBalls(float deltaTime);
 };

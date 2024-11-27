@@ -235,13 +235,13 @@ inline LMRetValue lmLoadModel()
             }
         }
     }
-    // centerPolygon(shapes_all[2], indices, vertices);
-    // centerPolygon(shapes_all[7], indices, vertices);
-    // centerPolygon(shapes_all[8], indices, vertices);
-    // for (size_t i = 10; i < shapes_all.size(); i++){
-    //     centerPolygon(shapes_all[i], indices, vertices);
-    // }
-    centerPolygon(shapes_all[10], indices, vertices);
+    centerPolygon(shapes_all[2], indices, vertices);
+    centerPolygon(shapes_all[7], indices, vertices);
+    centerPolygon(shapes_all[8], indices, vertices);
+    for (size_t i = 10; i < shapes_all.size(); i++){
+        centerPolygon(shapes_all[i], indices, vertices);
+    }
+    // centerPolygon(shapes_all[10], indices, vertices);
     std::cout << "Num Vertices: " << vertices.size() << std::endl;
     LMRetValue ret{};
     ret.vertices = vertices;

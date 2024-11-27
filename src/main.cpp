@@ -1953,7 +1953,7 @@ class HelloTriangleApplication
             vubo.model = gameState.getModelMatrix(i);
 
             vubo.view = gameState.getCamera().GetViewMatrix();
-            vubo.proj = glm::perspective(glm::radians(60.0f),
+            vubo.proj = glm::perspective(glm::radians(70.0f),
                                          swapChainExtent.width /
                                              (float)swapChainExtent.height,
                                          0.1f, 50.0f);
@@ -1968,8 +1968,8 @@ class HelloTriangleApplication
             FragUniformBufferObject fubo{};
             fubo.color = glm::vec3(0.5f, 0.2f, 1.0f);
             fubo.camPos = gameState.getCamera().Position;
-            // fubo.lightPos = glm::vec3(0.0f, 3.0f, 0.0f);
-            fubo.lightPos = gameState.getObjectPos(10);
+            fubo.lightPos = glm::vec3(0.0f, 3.0f, 0.0f);
+            // fubo.lightPos = gameState.getObjectPos(10);
             fubo.lightColor = glm::vec3(10.0f);
 
             memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
