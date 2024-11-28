@@ -110,7 +110,7 @@ struct LMRetValue
     std::vector<Shape> shapes;
 };
 
-const std::string _LM_MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
+const std::string _LM_MODEL_PATH = "assets/models/pool_table/POOL TABLE.obj";
 
 // this edits the vertices parameter to center the shape
 inline void centerPolygon(Shape shape, std::vector<uint32_t> indices,

@@ -24,6 +24,7 @@ class GameState
         glm::vec3 pos;
         glm::vec3 velocity;
         glm::vec3 rotation;
+        bool colliding;
     };
     
     Camera camera;
@@ -37,6 +38,8 @@ class GameState
 
     void printLogs();
     void updateBalls(float deltaTime);
+
+    void checkCollision();
 };
 
 #endif

@@ -25,6 +25,14 @@
 #define BALL_RADIUS 0.0292657f
 #define BALL_CIRCUMFRANCE 0.183788f
 
+float randomFloat(float a, float b)
+{
+    float random = ((float)rand()) / (float)RAND_MAX;
+    float diff = b - a;
+    float r = random * diff;
+    return a + r;
+}
+
 void processInput(GLFWwindow *window, float deltaTime, Camera *camera)
 {
     // float speed = 1.0;
@@ -92,34 +100,36 @@ GameState::GameState()
     for (int i = 0; i < NUM_BALLS; i++)
     {
         Ball new_ball = {};
-        new_ball.pos = glm::vec3(0.0f);
-        new_ball.velocity = glm::vec3(0.0f);
+        new_ball.pos = glm::vec3(0.0f, TABLE_HEIGHT, 0.0f);
+        new_ball.velocity =
+            glm::vec3(randomFloat(-1.0f, 1.0f), randomFloat(-1.0f, 1.0f),
+                      randomFloat(-1.0f, 1.0f));
         new_ball.rotation = glm::vec3(0.0f);
         balls_all.push_back(new_ball);
     }
 
     // balls_all[WHITE_BALL].pos = glm::vec3(+TABLE_LENGTH, TABLE_HEIGHT, 0.0f);
-    balls_all[WHITE_BALL].pos =
-        glm::vec3(TABLE_EAST_EDGE / 2, TABLE_HEIGHT, TABLE_NORTH_EDGE);
-    balls_all[WHITE_BALL].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    balls_all[WHITE_BALL].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
-
-    balls_all[WHITE_BALL + 1].pos =
-        glm::vec3(TABLE_EAST_EDGE / 2, TABLE_HEIGHT, TABLE_SOUTH_EDGE);
-    balls_all[WHITE_BALL + 1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    balls_all[WHITE_BALL + 1].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
-
-    balls_all[WHITE_BALL + 2].pos =
-        glm::vec3(TABLE_EAST_EDGE, TABLE_HEIGHT, 0.0f);
-    balls_all[WHITE_BALL + 2].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    balls_all[WHITE_BALL + 2].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
-
-    balls_all[WHITE_BALL + 3].pos =
-        glm::vec3(TABLE_WEST_EDGE, TABLE_HEIGHT, 0.0f);
-    balls_all[WHITE_BALL + 3].velocity = glm::vec3(0.1f, 0.0f, 0.1f);
-    balls_all[WHITE_BALL + 3].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
-
-    std::cout << "Finished GameState constructor" << std::endl;
+    // balls_all[WHITE_BALL].pos =
+    //     glm::vec3(TABLE_EAST_EDGE / 2, TABLE_HEIGHT, TABLE_NORTH_EDGE);
+    // balls_all[WHITE_BALL].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    // balls_all[WHITE_BALL].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
+    //
+    // balls_all[WHITE_BALL + 1].pos =
+    //     glm::vec3(TABLE_EAST_EDGE / 2, TABLE_HEIGHT, TABLE_SOUTH_EDGE);
+    // balls_all[WHITE_BALL + 1].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    // balls_all[WHITE_BALL + 1].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
+    //
+    // balls_all[WHITE_BALL + 2].pos =
+    //     glm::vec3(TABLE_EAST_EDGE, TABLE_HEIGHT, 0.0f);
+    // balls_all[WHITE_BALL + 2].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    // balls_all[WHITE_BALL + 2].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
+    //
+    // balls_all[WHITE_BALL + 3].pos =
+    //     glm::vec3(TABLE_WEST_EDGE, TABLE_HEIGHT, 0.0f);
+    // balls_all[WHITE_BALL + 3].velocity = glm::vec3(0.1f, 0.0f, 0.1f);
+    // balls_all[WHITE_BALL + 3].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
+    //
+    // std::cout << "Finished GameState constructor" << std::endl;
 }
 
 void GameState::updateGame(GLFWwindow *window, float deltaTime)
@@ -171,8 +181,18 @@ void GameState::updateBalls(float deltaTime)
 
         balls_all[i] = newBall;
     }
+}
 
-    // whiteBall = newBall;
+void GameState::checkCollision()
+{
+    for (int i = 0; i < balls_all.size(); i++)
+    {
+        for (int j = 0; j < balls_all.size(); j++)
+        {
+            if (i == j)
+                continue;
+        }
+    }
 }
 
 glm::mat4 GameState::getModelMatrix(size_t index)

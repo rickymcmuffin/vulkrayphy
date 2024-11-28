@@ -38,15 +38,15 @@
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
-const std::string MODEL_PATH = "assets/models/pool_table/POOL_TABLE.obj";
+const std::string MODEL_PATH = "assets/models/pool_table/POOL TABLE.obj";
 const std::string ALBEDO_PATH =
-    "assets/models/pool_table/pool_table low_POOL TABLE_BaseColor.png";
+    "assets/models/pool_table/pool table low_POOL TABLE_BaseColor.png";
 const std::string NORMAL_PATH =
-    "assets/models/pool_table/pool_table low_POOL TABLE_Normal.png";
+    "assets/models/pool_table/pool table low_POOL TABLE_Normal.png";
 const std::string METALLIC_PATH =
-    "assets/models/pool_table/pool_table low_POOL TABLE_Metallic.png";
+    "assets/models/pool_table/pool table low_POOL TABLE_Metallic.png";
 const std::string ROUGHNESS_PATH =
-    "assets/models/pool_table/pool_table low_POOL TABLE_Roughness.png";
+    "assets/models/pool_table/pool table low_POOL TABLE_Roughness.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -1085,7 +1085,9 @@ class HelloTriangleApplication
         normalMap.filePath = NORMAL_PATH;
         metallicMap.filePath = METALLIC_PATH;
         roughnessMap.filePath = ROUGHNESS_PATH;
+        std::cout << "creating albedo" <<std::endl;
         createMap(&albedoMap);
+        std::cout << "creating normal";
         createMap(&normalMap);
         createMap(&metallicMap);
         createMap(&roughnessMap);
@@ -1578,10 +1580,10 @@ class HelloTriangleApplication
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[0].descriptorCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size() * 2;
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         poolSizes[1].descriptorCount =
-            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size();
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * shapes_all.size() * 4;
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
