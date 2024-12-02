@@ -133,6 +133,7 @@ struct FragUniformBufferObject
     alignas(16) glm::vec3 camPos;
     alignas(16) glm::vec3 lightPos;
     alignas(16) glm::vec3 lightColor;
+    alignas(1)  bool useColor;
 };
 
 class HelloTriangleApplication
@@ -234,11 +235,11 @@ class HelloTriangleApplication
 
         const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
-        uint32_t window_width = mode->width;
-        uint32_t window_height = mode->height;
+        uint32_t window_width = WIDTH;
+        uint32_t window_height = HEIGHT;
 
         window = glfwCreateWindow(window_width, window_height, "Vulkan",
-                                  glfwGetPrimaryMonitor(), nullptr);
+                                  nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
@@ -1968,11 +1969,12 @@ class HelloTriangleApplication
                    sizeof(vubo));
 
             FragUniformBufferObject fubo{};
-            fubo.color = glm::vec3(0.5f, 0.2f, 1.0f);
+            fubo.color = glm::vec3(0.0f, 0.0f, 1.0f);
             fubo.camPos = gameState.getCamera().Position;
             fubo.lightPos = glm::vec3(0.0f, 3.0f, 0.0f);
             // fubo.lightPos = gameState.getObjectPos(10);
             fubo.lightColor = glm::vec3(10.0f);
+            fubo.useColor = gameState.getUseColor(i);
 
             memcpy(shapes_all[i].fragUniformBuffersMapped[currentImage], &fubo,
                    sizeof(fubo));

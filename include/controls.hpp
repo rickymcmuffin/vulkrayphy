@@ -2,7 +2,6 @@
 #define CONTROLS_HPP
 
 #include <cstdint>
-#include <iostream>
 #include <vector>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -19,14 +18,17 @@ class GameState
     glm::mat4 getModelMatrix(size_t index);
     glm::vec3 getObjectPos(size_t index);
 
+    bool getUseColor(size_t index);
+
   private:
-    struct Ball{
+    struct Ball
+    {
         glm::vec3 pos;
         glm::vec3 velocity;
-        glm::vec3 rotation;
+        glm::mat4 rotation;
         bool colliding;
     };
-    
+
     Camera camera;
 
     uint64_t frameCounter;
@@ -38,6 +40,8 @@ class GameState
 
     void printLogs();
     void updateBalls(float deltaTime);
+    void resolveCollision(Ball *first, Ball *second);
+    
 
     void checkCollision();
 };

@@ -1,10 +1,15 @@
 
 #include "../include/controls.hpp"
 #include <GLFW/glfw3.h>
+#include <filesystem>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_transform.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
+#include <sys/types.h>
+
+#include <iostream>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/string_cast.hpp"
@@ -97,14 +102,18 @@ GameState::GameState()
 {
     std::cout << "Started GameState constructor" << std::endl;
 
-    for (int i = 0; i < NUM_BALLS; i++)
+    float max_vel = 0.5f;
+
+    for (size_t i = 0; i < NUM_BALLS; i++)
     {
         Ball new_ball = {};
-        new_ball.pos = glm::vec3(0.0f, TABLE_HEIGHT, 0.0f);
-        new_ball.velocity =
-            glm::vec3(randomFloat(-1.0f, 1.0f), randomFloat(-1.0f, 1.0f),
-                      randomFloat(-1.0f, 1.0f));
-        new_ball.rotation = glm::vec3(0.0f);
+        new_ball.pos = glm::vec3(
+            randomFloat(TABLE_EAST_EDGE, TABLE_WEST_EDGE), TABLE_HEIGHT,
+            randomFloat(TABLE_SOUTH_EDGE, TABLE_NORTH_EDGE));
+        new_ball.velocity = glm::vec3(randomFloat(-max_vel, max_vel), 0.0f,
+                                      randomFloat(-max_vel, max_vel));
+        new_ball.rotation = glm::mat4(1.0f);
+        std::cout << "rotation matrix " << glm::to_string(new_ball.rotation);
         balls_all.push_back(new_ball);
     }
 
@@ -142,7 +151,8 @@ void GameState::updateGame(GLFWwindow *window, float deltaTime)
 
 void GameState::updateBalls(float deltaTime)
 {
-    for (int i = 0; i < balls_all.size(); i++)
+    checkCollision();
+    for (size_t i = 0; i < balls_all.size(); i++)
     {
         Ball newBall = balls_all[i];
         newBall.pos += balls_all[i].velocity * deltaTime;
@@ -177,7 +187,15 @@ void GameState::updateBalls(float deltaTime)
 
         auto delta_pos = newBall.pos - balls_all[i].pos;
 
-        newBall.rotation += delta_pos / BALL_CIRCUMFRANCE;
+        float distance = glm::distance(newBall.pos, balls_all[i].pos);
+        float angle = distance / BALL_CIRCUMFRANCE;
+
+        auto rotationAxis =
+            glm::normalize(glm::cross(delta_pos, glm::vec3(0.0f, 1.0f, 0.0f)));
+
+        newBall.rotation = glm::rotate(newBall.rotation, angle, rotationAxis);
+
+        // std::cout << "roation: " << glm::to_string(newBall.rotation)<<'\n';
 
         balls_all[i] = newBall;
     }
@@ -185,14 +203,52 @@ void GameState::updateBalls(float deltaTime)
 
 void GameState::checkCollision()
 {
-    for (int i = 0; i < balls_all.size(); i++)
+    for (size_t i = 0; i < balls_all.size(); i++)
     {
-        for (int j = 0; j < balls_all.size(); j++)
+        balls_all[i].colliding = false;
+        for (size_t j = 0; j < balls_all.size(); j++)
         {
             if (i == j)
                 continue;
+
+            float dist = glm::distance(balls_all[i].pos, balls_all[j].pos);
+            if (dist <= BALL_RADIUS * 2)
+            {
+                balls_all[i].colliding = true;
+                resolveCollision(&balls_all[i], &balls_all[j]);
+            }
         }
     }
+}
+
+void GameState::resolveCollision(Ball *first, Ball *second)
+{
+    // std::cout << "resolving Collision!";
+    glm::vec3 normal = glm::normalize(second->pos - first->pos);
+    glm::vec3 relativeVelocity = second->velocity - first->velocity;
+
+    glm::vec3 impulse = normal * (2 * glm::dot(relativeVelocity, normal) / 2);
+
+    first->velocity += impulse;
+    second->velocity -= impulse;
+
+    // let repulsion = p5.Vector.mult(normal, minDistance - distance);
+    float distance = glm::distance(first->pos, second->pos);
+    float minDistance = BALL_RADIUS * 2;
+    glm::vec3 repulsion = normal * (minDistance - distance);
+    first->pos -= repulsion;
+    second->pos += repulsion;
+}
+
+bool GameState::getUseColor(size_t index)
+{
+    return false;
+    if (index < BALLS_SHAPE_IND)
+    {
+        return false;
+    }
+
+    return balls_all[index - BALLS_SHAPE_IND].colliding;
 }
 
 glm::mat4 GameState::getModelMatrix(size_t index)
@@ -202,21 +258,14 @@ glm::mat4 GameState::getModelMatrix(size_t index)
     if (index >= BALLS_SHAPE_IND + WHITE_BALL)
     {
         size_t ball_ind = index - BALLS_SHAPE_IND;
+
+        ret = balls_all[ball_ind].rotation * ret;
         ret = glm::translate(ret, balls_all[ball_ind].pos);
-        ret = glm::rotate(
-            ret, balls_all[ball_ind].rotation.x * -glm::radians(360.0f),
-            glm::vec3(0.0f, 0.0f, 1.0f));
-        ret = glm::rotate(
-            ret, balls_all[ball_ind].rotation.y * -glm::radians(360.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-        ret = glm::rotate(ret,
-                          balls_all[ball_ind].rotation.z * glm::radians(360.0f),
-                          glm::vec3(1.0f, 0.0f, 0.0f));
         return ret;
     }
+    ret = glm::translate(ret, glm::vec3(0.0f, 0.0f, 0.0f));
     ret = glm::rotate(ret, (float)glfwGetTime() * glm::radians(0.0f),
                       glm::vec3(0.0f, 1.0f, 0.0f));
-    ret = glm::translate(ret, glm::vec3(0.0f, 0.0f, 0.0f));
 
     return ret;
 }

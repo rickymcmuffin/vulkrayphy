@@ -12,6 +12,7 @@ layout(binding = 1) uniform FragUniformBufferObject {
     vec3 camPos;
     vec3 lightPos;
     vec3 lightColor;
+    bool useColor;
 } ubo;
 
 layout(binding = 2) uniform sampler2D albedoSampler;
@@ -139,13 +140,16 @@ void main() {
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.1) * albedo;
+    vec3 ambient = vec3(1.0) * albedo;
     
     vec3 color = ambient + Lo;
 
     color = vec3ToSrgb(color);
 
-    outColor = vec4(color, 1.0);
-    // outColor = vec4((normalize(normal).z+1)/2);
+    if (ubo.useColor){
+        outColor = vec4(ubo.color, 1.0);
+    } else {
+        outColor = vec4(color, 1.0);
+    }
 
 }
