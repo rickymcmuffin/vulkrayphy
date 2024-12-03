@@ -3,6 +3,7 @@
 
 // #include "glad/glad.h"
 // #include "glm/glm.hpp"
+#include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <vector>
@@ -72,8 +73,8 @@ public:
     void ProcessKeyboard(Camera_Movement direction, float deltaTime)
     {
         float velocity = MovementSpeed * deltaTime;
-        glm::vec3 FrontPlane = glm::vec3(Front.x, 0.0, Front.z);
-        glm::vec3 RightPlane = glm::vec3(Right.x, 0.0, Right.z);
+        glm::vec3 FrontPlane = glm::normalize(glm::vec3(Front.x, 0.0, Front.z));
+        glm::vec3 RightPlane = glm::normalize(glm::vec3(Right.x, 0.0, Right.z));
         if (direction == FORWARD)
             Position += FrontPlane * velocity;
         if (direction == BACKWARD)

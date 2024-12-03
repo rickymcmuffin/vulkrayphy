@@ -2,6 +2,7 @@
 #include "../include/controls.hpp"
 #include <GLFW/glfw3.h>
 #include <filesystem>
+#include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_transform.hpp>
 #include <glm/ext/vector_float3.hpp>
@@ -16,6 +17,7 @@
 
 #define NUM_SHAPES 26
 #define WHITE_BALL 0
+#define TEST_BALL 3
 
 #define NUM_BALLS 16
 
@@ -113,15 +115,17 @@ GameState::GameState()
         new_ball.velocity = glm::vec3(randomFloat(-max_vel, max_vel), 0.0f,
                                       randomFloat(-max_vel, max_vel));
         new_ball.rotation = glm::mat4(1.0f);
-        std::cout << "rotation matrix " << glm::to_string(new_ball.rotation);
+
+        // new_ball.pos = glm::vec3(0.0f, 0.0f, 0.0f);
+        // new_ball.velocity = glm::vec3(0.0f);
+        // new_ball.rotation = glm::mat4(1.0f);
+
         balls_all.push_back(new_ball);
     }
 
-    // balls_all[WHITE_BALL].pos = glm::vec3(+TABLE_LENGTH, TABLE_HEIGHT, 0.0f);
-    // balls_all[WHITE_BALL].pos =
-    //     glm::vec3(TABLE_EAST_EDGE / 2, TABLE_HEIGHT, TABLE_NORTH_EDGE);
-    // balls_all[WHITE_BALL].velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    // balls_all[WHITE_BALL].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
+    // balls_all[3].pos = glm::vec3(0, TABLE_HEIGHT, 0);
+    // balls_all[3].velocity = glm::vec3(0.1f, 0.0f, 0.1f);
+    // balls_all[3].rotation = glm::mat4(1.0f);
     //
     // balls_all[WHITE_BALL + 1].pos =
     //     glm::vec3(TABLE_EAST_EDGE / 2, TABLE_HEIGHT, TABLE_SOUTH_EDGE);
@@ -138,7 +142,7 @@ GameState::GameState()
     // balls_all[WHITE_BALL + 3].velocity = glm::vec3(0.1f, 0.0f, 0.1f);
     // balls_all[WHITE_BALL + 3].rotation = glm::vec3(1.0f, 1.0f, 1.0f);
     //
-    // std::cout << "Finished GameState constructor" << std::endl;
+    // std::cout << , 1.0f, 1.0f"Finished GameState constructor" << std::endl;
 }
 
 void GameState::updateGame(GLFWwindow *window, float deltaTime)
@@ -151,7 +155,10 @@ void GameState::updateGame(GLFWwindow *window, float deltaTime)
 
 void GameState::updateBalls(float deltaTime)
 {
+    auto old_balls = balls_all;
+
     checkCollision();
+
     for (size_t i = 0; i < balls_all.size(); i++)
     {
         Ball newBall = balls_all[i];
@@ -185,17 +192,20 @@ void GameState::updateBalls(float deltaTime)
             newBall.velocity.z = -balls_all[i].velocity.z;
         }
 
-        auto delta_pos = newBall.pos - balls_all[i].pos;
+        auto delta_pos = newBall.velocity * deltaTime;
 
         float distance = glm::distance(newBall.pos, balls_all[i].pos);
-        float angle = distance / BALL_CIRCUMFRANCE;
+        float angle = 3.14* distance / BALL_CIRCUMFRANCE;
 
-        auto rotationAxis =
-            glm::normalize(glm::cross(delta_pos, glm::vec3(0.0f, 1.0f, 0.0f)));
+        auto rotationAxis = glm::normalize(
+            glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), newBall.velocity));
 
-        newBall.rotation = glm::rotate(newBall.rotation, angle, rotationAxis);
+        // if (i == TEST_BALL)
+            // std::cout << "rotation axis: " << glm::to_string(rotationAxis)<< std::endl;
 
-        // std::cout << "roation: " << glm::to_string(newBall.rotation)<<'\n';
+        auto new_rotation = glm::rotate(glm::mat4(1.0f), angle, rotationAxis);
+        newBall.rotation = new_rotation * newBall.rotation ;
+
 
         balls_all[i] = newBall;
     }
@@ -259,8 +269,12 @@ glm::mat4 GameState::getModelMatrix(size_t index)
     {
         size_t ball_ind = index - BALLS_SHAPE_IND;
 
-        ret = balls_all[ball_ind].rotation * ret;
-        ret = glm::translate(ret, balls_all[ball_ind].pos);
+        auto translate_mat =
+            glm::translate(glm::mat4(1.0f), balls_all[ball_ind].pos);
+        auto rotate_mat = balls_all[ball_ind].rotation;
+
+        ret = translate_mat * balls_all[ball_ind].rotation * ret;
+        // ret = balls_all[ball_ind].rotation * ret;
         return ret;
     }
     ret = glm::translate(ret, glm::vec3(0.0f, 0.0f, 0.0f));
@@ -281,7 +295,6 @@ void GameState::printLogs()
     {
         std::cout << "\rFPS: " << frameCounter
                   << " | Camera Pos: " << glm::to_string(camera.Position)
-                  << " | Ball Pos: " << glm::to_string(whiteBall.rotation)
                   << "                        ";
         frameCounter = 0;
         last_time = glfwGetTime();
