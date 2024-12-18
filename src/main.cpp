@@ -133,7 +133,7 @@ struct FragUniformBufferObject
     alignas(16) glm::vec3 camPos;
     alignas(16) glm::vec3 lightPos;
     alignas(16) glm::vec3 lightColor;
-    alignas(1)  bool useColor;
+    alignas(1) bool useColor;
 };
 
 class HelloTriangleApplication
@@ -242,6 +242,7 @@ class HelloTriangleApplication
                                   nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        glfwSetKeyCallback(window, key_callback);
     }
 
     static void framebufferResizeCallback(GLFWwindow *window, int width,
@@ -250,6 +251,18 @@ class HelloTriangleApplication
         auto app = reinterpret_cast<HelloTriangleApplication *>(
             glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
+    }
+
+    static void key_callback(GLFWwindow *window, int key, int scancode,
+                             int action, int mods)
+    {
+        auto app = reinterpret_cast<HelloTriangleApplication *>(
+            glfwGetWindowUserPointer(window));
+
+        if(key == GLFW_KEY_R && action == GLFW_PRESS){
+            app->gameState.restartGame();
+        }
+
     }
 
     void initVulkan()
@@ -1086,7 +1099,7 @@ class HelloTriangleApplication
         normalMap.filePath = NORMAL_PATH;
         metallicMap.filePath = METALLIC_PATH;
         roughnessMap.filePath = ROUGHNESS_PATH;
-        std::cout << "creating albedo" <<std::endl;
+        std::cout << "creating albedo" << std::endl;
         createMap(&albedoMap);
         std::cout << "creating normal";
         createMap(&normalMap);
@@ -1471,6 +1484,15 @@ class HelloTriangleApplication
         vertices = lm.vertices;
         indices = lm.indices;
         shapes_all = lm.shapes;
+
+        auto rim_shape = shapes_all[6];
+        auto v_raw = lm.vertices_raw;
+
+        auto rim_raw = std::vector(v_raw.begin() + rim_shape.firstIndex,
+                                   v_raw.begin() + rim_shape.firstIndex +
+                                       rim_shape.indexCount);
+
+        gameState.setRimMesh(rim_raw);
     }
 
     void createVertexBuffer()
@@ -1897,6 +1919,7 @@ class HelloTriangleApplication
 
         for (size_t i = 0; i < shapes_all.size(); i++)
         {
+            // if (i != 9) continue;
             vkCmdBindDescriptorSets(
                 commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                 0, 1, &shapes_all[i].descriptorSets[currentFrame], 0, nullptr);
@@ -1959,7 +1982,7 @@ class HelloTriangleApplication
             vubo.proj = glm::perspective(glm::radians(70.0f),
                                          swapChainExtent.width /
                                              (float)swapChainExtent.height,
-                                         0.1f, 50.0f);
+                                         0.01f, 10.0f);
             vubo.proj[1][1] *= -1;
 
             vubo.normalMatrix =
@@ -2334,6 +2357,7 @@ class HelloTriangleApplication
 
 int main()
 {
+    srand(time(NULL));
     HelloTriangleApplication app;
 
     try

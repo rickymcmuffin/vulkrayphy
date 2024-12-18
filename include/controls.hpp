@@ -20,6 +20,9 @@ class GameState
 
     bool getUseColor(size_t index);
 
+    void setRimMesh(std::vector<glm::vec3> rim_mesh);
+    void restartGame();
+
   private:
     struct Ball
     {
@@ -28,6 +31,7 @@ class GameState
         glm::mat4 rotation;
         bool colliding;
     };
+
 
     Camera camera;
 
@@ -38,12 +42,19 @@ class GameState
 
     std::vector<Ball> balls_all;
 
+    std::vector<glm::vec3> rim_mesh;
+
     void printLogs();
     void updateBalls(float deltaTime);
+    Ball applyForces(Ball ball, float delta_time);
     void resolveCollision(Ball *first, Ball *second);
+    void resolveRimCollision(Ball *ball, std::vector<glm::vec3> triangle);
     
 
+    void checkRimCollision();
+    bool checkTriangleCollision(Ball ball, std::vector<glm::vec3> triangle);
     void checkCollision();
+
 };
 
 #endif

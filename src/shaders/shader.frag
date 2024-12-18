@@ -140,7 +140,7 @@ void main() {
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.01) * albedo;
+    vec3 ambient = vec3(0.5) * albedo;
     
     vec3 color = ambient + Lo;
 
@@ -151,5 +151,6 @@ void main() {
     } else {
         outColor = vec4(color, 1.0);
     }
+
 
 }

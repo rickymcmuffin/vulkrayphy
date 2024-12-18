@@ -1,6 +1,7 @@
 #ifndef LOAD_MODEL_HPP
 #define LOAD_MODEL_HPP
 
+#include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtx/string_cast.hpp>
 #define GLFW_INCLUDE_VULKAN
@@ -108,6 +109,7 @@ struct LMRetValue
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Shape> shapes;
+    std::vector<glm::vec3> vertices_raw;
 };
 
 const std::string _LM_MODEL_PATH = "assets/models/pool_table/POOL TABLE.obj";
@@ -167,6 +169,8 @@ inline LMRetValue lmLoadModel()
     std::vector<uint32_t> indices;
     std::vector<Shape> shapes_all;
 
+    std::vector<glm::vec3> vertices_raw;
+
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -216,6 +220,9 @@ inline LMRetValue lmLoadModel()
             }
 
             indices.push_back(uniqueVertices[vertex]);
+
+            vertices_raw.push_back(vertex.pos);
+
             new_shape.indexCount++;
         }
         shapes_all.push_back(new_shape);
@@ -247,6 +254,7 @@ inline LMRetValue lmLoadModel()
     ret.vertices = vertices;
     ret.indices = indices;
     ret.shapes = shapes_all;
+    ret.vertices_raw = vertices_raw;
 
     return ret;
 }
